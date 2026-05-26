@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { bassPresets, defaultArp, defaultFx, drumPatterns, factoryPresets, leadPresets, randomBass, randomDrum, randomLead } from "../data/presets";
 import { auraAudio } from "../lib/audioEngine";
 import { buildMidiFile, downloadBlob } from "../lib/export";
-import { createHarmonySuggestions, getSuggestionVariant } from "../lib/harmonySuggestions";
+import { createHarmonySuggestions, getSuggestionVariant, hasCuratedLoopContinuation } from "../lib/harmonySuggestions";
 import { extensionToModifiers, type FoundationExtension } from "../lib/foundationTheory";
 import { buildChord, displayChordLabel, formatNoteList, midiToNoteName, NOTE_NAMES, noteToMidi, noteToPitch, pitchToNote, voicingStageName } from "../lib/musicTheory";
 import { loadMidiMappings, loadSavedLoops, loadUserPresets, saveMidiMappings, saveSavedLoops, saveUserPresets } from "../lib/storage";
@@ -34,6 +34,9 @@ import type {
   MidiPlayMode,
   NoteName,
   PerformanceMode,
+  PhraseSlot,
+  PhraseStatus,
+  PhraseStep,
   SavedLoop,
   ScaleMode,
   SoundAuditItem,
@@ -256,6 +259,11 @@ interface AuraState {
   focusedSuggestionId: string;
   suggestionAltIndexes: Record<string, number>;
   harmonyHistory: ChordResult[];
+  phraseSlots: PhraseSlot[];
+  phraseStep: PhraseStep;
+  phraseStatus: PhraseStatus;
+  phraseAdvanceToken: number;
+  phraseReturnToken: number;
 
   activateAudio: () => Promise<void>;
   setMidiSupported: (supported: boolean) => void;
@@ -352,7 +360,9 @@ interface AuraState {
   focusHarmonySuggestion: (id: string) => void;
   clearHarmonyFocus: () => void;
   cycleHarmonyAlternative: () => void;
+  newPhrase: () => void;
   clearHarmonyContext: () => void;
+  clearPhrase: () => void;
   refreshHarmonySuggestions: (chord?: ChordResult | null) => void;
 }
 
@@ -443,8 +453,85 @@ const clearIdeaPlaybackTimers = () => {
 
 const findSuggestionForRoot = (state: AuraState, root: NoteName) =>
   state.smartEnabled
-    ? state.harmonySuggestions.find((suggestion) => suggestion.rootMidiClass === noteToPitch(root))
+    ? state.harmonySuggestions.find((suggestion) => suggestion.rootMidiClass === noteToPitch(root) && suggestion.confidence >= 0.16)
     : undefined;
+
+const createEmptyPhraseSlots = (): PhraseSlot[] => [
+  { step: 1, chord: null },
+  { step: 2, chord: null },
+  { step: 3, chord: null },
+  { step: 4, chord: null },
+];
+
+const sameChordIdentity = (a: ChordResult | null | undefined, b: ChordResult | null | undefined) =>
+  Boolean(a && b && a.root === b.root && a.type === b.type && a.modifiers.length === b.modifiers.length && a.modifiers.every((modifier) => b.modifiers.includes(modifier)));
+
+const advancePhrase = (state: AuraState, chord: ChordResult) => {
+  const currentStep = state.phraseStep;
+  if (state.phraseStatus === "LOOP_FOLLOW") {
+    const expected = state.phraseSlots[currentStep - 1]?.chord ?? null;
+    if (sameChordIdentity(expected, chord)) {
+      const completed = currentStep === 4;
+      return {
+        phraseSlots: state.phraseSlots.map((slot) => ({ ...slot })),
+        phraseStep: (completed ? 1 : currentStep + 1) as PhraseStep,
+        phraseStatus: "LOOP_FOLLOW" as PhraseStatus,
+        phraseAdvanceToken: state.phraseAdvanceToken + 1,
+        phraseReturnToken: completed ? state.phraseReturnToken + 1 : state.phraseReturnToken,
+      };
+    }
+    const phraseSlots = createEmptyPhraseSlots();
+    phraseSlots[0] = { step: 1, chord };
+    return {
+      phraseSlots,
+      phraseStep: 2 as PhraseStep,
+      phraseStatus: "BUILDING_PHRASE" as PhraseStatus,
+      phraseAdvanceToken: state.phraseAdvanceToken + 1,
+      phraseReturnToken: state.phraseReturnToken,
+    };
+  }
+
+  if (
+    currentStep > 1 &&
+    state.smartEnabled &&
+    state.keyModeEnabled &&
+    (state.harmonyPath === "DREAM" || state.harmonyPath === "SAFE") &&
+    !hasCuratedLoopContinuation({
+      chord,
+      phrase: {
+        currentStep,
+        chords: state.phraseSlots.map((slot) => slot.chord),
+        status: state.phraseStatus,
+      },
+      keyRoot: state.keyRoot,
+      scaleMode: state.scaleMode,
+      keyModeEnabled: state.keyModeEnabled,
+      pathMode: state.harmonyPath,
+      spread: state.spread,
+    })
+  ) {
+    const phraseSlots = createEmptyPhraseSlots();
+    phraseSlots[0] = { step: 1, chord };
+    return {
+      phraseSlots,
+      phraseStep: 2 as PhraseStep,
+      phraseStatus: "BUILDING_PHRASE" as PhraseStatus,
+      phraseAdvanceToken: state.phraseAdvanceToken + 1,
+      phraseReturnToken: state.phraseReturnToken,
+    };
+  }
+
+  const phraseSlots = currentStep === 1 ? createEmptyPhraseSlots() : state.phraseSlots.map((slot) => ({ ...slot }));
+  phraseSlots[currentStep - 1] = { step: currentStep, chord };
+  const completed = currentStep === 4;
+  return {
+    phraseSlots,
+    phraseStep: (completed ? 1 : currentStep + 1) as PhraseStep,
+    phraseStatus: (completed ? "LOOP_FOLLOW" : "BUILDING_PHRASE") as PhraseStatus,
+    phraseAdvanceToken: state.phraseAdvanceToken + 1,
+    phraseReturnToken: completed ? state.phraseReturnToken + 1 : state.phraseReturnToken,
+  };
+};
 
 const computeHarmonySuggestions = (state: AuraState, chord: ChordResult | null = state.currentChord) =>
   state.smartEnabled
@@ -456,6 +543,11 @@ const computeHarmonySuggestions = (state: AuraState, chord: ChordResult | null =
         keyModeEnabled: state.keyModeEnabled,
         pathMode: state.harmonyPath,
         spread: state.spread,
+        phrase: {
+          currentStep: state.phraseStep,
+          chords: state.phraseSlots.map((slot) => slot.chord),
+          status: state.phraseStatus,
+        },
       })
     : [];
 
@@ -552,12 +644,17 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   stepSequencerOpen: false,
   guidedMode: false,
   smartEnabled: false,
-  harmonyPath: "COLOUR",
+  harmonyPath: "DREAM",
   manualLock: false,
   harmonySuggestions: [],
   focusedSuggestionId: "",
   suggestionAltIndexes: {},
   harmonyHistory: [],
+  phraseSlots: createEmptyPhraseSlots(),
+  phraseStep: 1,
+  phraseStatus: "BUILDING_PHRASE",
+  phraseAdvanceToken: 0,
+  phraseReturnToken: 0,
 
   activateAudio: async () => {
     if (get().audioReady) return;
@@ -587,10 +684,17 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     }),
 
   setMidiDevices: (inputs, outputs) => {
-    const selected = inputs.find((input) => input.id === get().selectedMidiInputId) ?? inputs[0];
-    const output = outputs.find((item) => item.id === get().selectedMidiOutputId) ?? outputs[0];
+    const currentInputId = get().selectedMidiInputId;
+    const currentOutputId = get().selectedMidiOutputId;
+    const previousInputIds = new Set(get().midiDevices.map((device) => device.id));
+    const selected = currentInputId ? inputs.find((input) => input.id === currentInputId) : undefined;
+    const output = currentOutputId ? outputs.find((item) => item.id === currentOutputId) : undefined;
+    const inputDisconnected =
+      Boolean(currentInputId && !selected) ||
+      inputs.length < previousInputIds.size ||
+      Array.from(previousInputIds).some((id) => !inputs.some((input) => input.id === id));
     const midiMessage = selected ? `MIDI: ${selected.name} verbunden` : "MIDI: Kein Keyboard verbunden";
-    const previous = get().selectedMidiInputId;
+    const previous = currentInputId;
     if (selected && selected.id !== previous) {
       set({ toast: `Keyboard verbunden: ${selected.name}` });
       window.setTimeout(() => {
@@ -602,8 +706,12 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       midiOutputs: outputs,
       selectedMidiInputId: selected?.id ?? "",
       selectedMidiOutputId: output?.id ?? "",
-      midiMessage,
+      midiMessage: selected ? midiMessage : inputs.length ? "MIDI: Auto Input bereit" : midiMessage,
     });
+    if (inputDisconnected) {
+      get().allNotesOff();
+      set({ lastMidiEvent: "MIDI disconnected: all notes off" });
+    }
     if (selected && selected.id !== previous) {
       get().flashDisplay("MIDI CONNECTED", [selected.name.toUpperCase().slice(0, 24)], undefined, "MIDI_NOTIFICATION_VIEW");
     }
@@ -623,6 +731,13 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   toggleMidiDiagnostics: () => set({ midiDiagnosticsOpen: !get().midiDiagnosticsOpen, settingsOpen: true }),
 
   selectMidiInput: (id) => {
+    if (!id) {
+      set({
+        selectedMidiInputId: "",
+        midiMessage: get().midiDevices.length ? "MIDI: Auto Input bereit" : "MIDI: Kein Keyboard verbunden",
+      });
+      return;
+    }
     const selected = get().midiDevices.find((device) => device.id === id);
     set({ selectedMidiInputId: id, midiMessage: selected ? `MIDI: ${selected.name} verbunden` : "MIDI: Kein Keyboard verbunden" });
   },
@@ -754,17 +869,20 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     };
     const activeTriggers = { ...state.activeTriggers, [triggerId]: trigger };
     const activeTriggerKeys = { ...state.activeTriggerKeys, [inputKey]: triggerId };
-    const harmonyHistory = [...state.harmonyHistory, chord].slice(-8);
-    const harmonySuggestions = state.smartEnabled
-      ? createHarmonySuggestions({
-          currentChord: chord,
-          history: harmonyHistory,
-          keyRoot: state.keyRoot,
-          scaleMode: state.scaleMode,
-          keyModeEnabled: state.keyModeEnabled,
-          pathMode: state.harmonyPath,
-        })
-      : [];
+    const phrasePatch = advancePhrase(state, chord);
+    const startedVariation = state.phraseStatus === "LOOP_FOLLOW" && phrasePatch.phraseStatus === "BUILDING_PHRASE";
+    const restartedDuringBuild =
+      state.phraseStatus === "BUILDING_PHRASE" &&
+      state.phraseStep !== 1 &&
+      phrasePatch.phraseStatus === "BUILDING_PHRASE" &&
+      phrasePatch.phraseStep === 2 &&
+      sameChordIdentity(phrasePatch.phraseSlots[0]?.chord, chord) &&
+      !phrasePatch.phraseSlots[1]?.chord;
+    const harmonyHistory = startedVariation || restartedDuringBuild ? [chord] : [...state.harmonyHistory, chord].slice(-8);
+    const harmonySuggestions = computeHarmonySuggestions(
+      { ...state, ...phrasePatch, harmonyHistory, currentChord: chord },
+      chord,
+    );
     setTriggerState(set, activeTriggers, state.activeNormalNotes, {
       currentChord: chord,
       previousChordNotes: chord.midiNotes,
@@ -773,6 +891,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       modifiers,
       harmonyHistory,
       harmonySuggestions,
+      ...phrasePatch,
       focusedSuggestionId: "",
       lastNoteOn: `${sourceLabel(source)} ${root}${inputMidi !== undefined ? ` (${midiToNoteName(inputMidi)})` : ""}`,
       lastVelocity: velocity,
@@ -782,7 +901,17 @@ export const useAuraStore = create<AuraState>((set, get) => ({
         bass: { ...state.layers.bass, active: state.bassMode !== "Off" },
       },
     });
-    get().flashDisplay(displayChordLabel(chord), [], undefined, "PLAY_VIEW");
+    if (!state.smartEnabled || !state.keyModeEnabled) {
+      get().flashDisplay(displayChordLabel(chord), [], undefined, "PLAY_VIEW");
+    } else if (phrasePatch.phraseStatus === "LOOP_FOLLOW" && state.phraseStatus !== "LOOP_FOLLOW") {
+      get().flashDisplay("LOOP SET", phrasePatch.phraseSlots.map((slot) => (slot.chord ? displayChordLabel(slot.chord) : "-")), undefined, "SMART_VIEW");
+    } else if (phrasePatch.phraseStatus === "LOOP_FOLLOW") {
+      get().flashDisplay(`LOOP ${state.phraseStep}/4`, [displayChordLabel(chord)], undefined, "SMART_VIEW");
+    } else if (state.phraseStatus === "LOOP_FOLLOW" || restartedDuringBuild) {
+      get().flashDisplay("NEW PATH", [displayChordLabel(chord)], undefined, "SMART_VIEW");
+    } else {
+      get().flashDisplay(`BUILD ${state.phraseStep}/4`, [displayChordLabel(chord)], undefined, "SMART_VIEW");
+    }
 
     const recording = get().looperRecording || get().looperOverdub;
     if (recording) {
@@ -1009,6 +1138,12 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       harmonySuggestions: [],
       focusedSuggestionId: "",
       suggestionAltIndexes: {},
+      harmonyHistory: [],
+      phraseSlots: createEmptyPhraseSlots(),
+      phraseStep: 1,
+      phraseStatus: "BUILDING_PHRASE",
+      phraseAdvanceToken: get().phraseAdvanceToken + 1,
+      phraseReturnToken: get().phraseReturnToken,
       displayMode: "IDLE_VIEW",
     });
     get().flashDisplay("PRESET", ["TEST POLY"], undefined, "PARAMETER_VIEW");
@@ -1109,7 +1244,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     set({ color: next });
     get().flashDisplay("COLOUR", [`${Math.round(next * 100)}`], [next], "PARAMETER_VIEW");
   },
-  flashDisplay: (title, lines = [], bars, mode = "PARAMETER_VIEW") => set({ displayFlash: { title, lines, bars, mode, expiresAt: Date.now() + 1100 }, displayMode: mode }),
+  flashDisplay: (title, lines = [], bars, mode = "PARAMETER_VIEW") => set({ displayFlash: { title, lines, bars, mode, expiresAt: Date.now() + 850 }, displayMode: mode }),
   clearExpiredDisplay: () => {
     const flash = get().displayFlash;
     if (flash && flash.expiresAt <= Date.now()) {
@@ -1233,11 +1368,13 @@ export const useAuraStore = create<AuraState>((set, get) => ({
 
   setArp: (patch) => {
     const nextPatch = { ...patch };
-    if (nextPatch.direction && !["Up", "Down", "Up/Down"].includes(nextPatch.direction)) nextPatch.direction = "Up";
-    if (nextPatch.rate && !["1/4", "1/8", "1/16"].includes(nextPatch.rate)) nextPatch.rate = "1/8";
     const arp = { ...get().arp, ...nextPatch };
     auraAudio.setArpeggiator(arp);
-    set({ arp, modules: { ...get().modules, arp: arp.enabled || get().modules.arp } });
+    set({
+      arp,
+      activeArpNote: arp.enabled ? get().activeArpNote : null,
+      modules: { ...get().modules, arp: arp.enabled },
+    });
     get().flashDisplay(arp.enabled ? "ARP" : "ARP OFF", [`${arp.direction.toUpperCase()}  ${arp.rate}`], undefined, "ARP_VIEW");
   },
   setPerformanceMode: (mode) => {
@@ -1713,7 +1850,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   },
   setManualLock: (enabled) => {
     set({ manualLock: enabled });
-    get().flashDisplay(enabled ? "MANUAL LOCK" : "SMART PLAY", [enabled ? "ROOT HINTS ONLY" : "AUTO COLOUR"], undefined, "SMART_VIEW");
+    get().flashDisplay(enabled ? "MANUAL LOCK" : "SMART PLAY", [enabled ? "ROOT HINTS ONLY" : "AUTO DREAM"], undefined, "SMART_VIEW");
   },
   focusHarmonySuggestion: (id) => {
     const suggestion = get().harmonySuggestions.find((item) => item.id === id);
@@ -1734,8 +1871,46 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     get().flashDisplay("ALT", [variant.displayName], undefined, "SMART_VIEW");
   },
   clearHarmonyContext: () => {
-    set({ harmonyHistory: [], harmonySuggestions: [], focusedSuggestionId: "", suggestionAltIndexes: {} });
+    set({
+      harmonyHistory: [],
+      harmonySuggestions: [],
+      focusedSuggestionId: "",
+      suggestionAltIndexes: {},
+      phraseSlots: createEmptyPhraseSlots(),
+      phraseStep: 1,
+      phraseStatus: "BUILDING_PHRASE",
+      phraseAdvanceToken: get().phraseAdvanceToken + 1,
+      phraseReturnToken: get().phraseReturnToken,
+    });
     get().flashDisplay("SMART RESET", ["NEW PATH"], undefined, "SMART_VIEW");
+  },
+  newPhrase: () => {
+    set({
+      harmonyHistory: [],
+      harmonySuggestions: [],
+      focusedSuggestionId: "",
+      suggestionAltIndexes: {},
+      phraseSlots: createEmptyPhraseSlots(),
+      phraseStep: 1,
+      phraseStatus: "BUILDING_PHRASE",
+      phraseAdvanceToken: get().phraseAdvanceToken + 1,
+      phraseReturnToken: get().phraseReturnToken,
+    });
+    get().flashDisplay("NEW PHRASE", ["BUILD 1/4"], undefined, "SMART_VIEW");
+  },
+  clearPhrase: () => {
+    set({
+      harmonyHistory: [],
+      harmonySuggestions: [],
+      focusedSuggestionId: "",
+      suggestionAltIndexes: {},
+      phraseSlots: createEmptyPhraseSlots(),
+      phraseStep: 1,
+      phraseStatus: "BUILDING_PHRASE",
+      phraseAdvanceToken: get().phraseAdvanceToken + 1,
+      phraseReturnToken: get().phraseReturnToken,
+    });
+    get().flashDisplay("PHRASE CLEAR", ["1/4"], undefined, "SMART_VIEW");
   },
   refreshHarmonySuggestions: (chord) => {
     const state = get();

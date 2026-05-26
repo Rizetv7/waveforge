@@ -93,16 +93,32 @@ export const defaultFlatForPitch = (pitch: number) => [3, 8, 10].includes(normal
 
 export const chordDisplayName = (chord: ChordResult, preferFlats = false) => {
   const root = noteNameForPitch(noteToPitch(chord.root), preferFlats || defaultFlatForPitch(noteToPitch(chord.root)));
+  const extension = extensionFromModifiers(chord.modifiers);
+  if (chord.type === "Major") {
+    if (extension === "7") return `${root}7`;
+    if (extension === "Maj7") return `${root} MAJ7`;
+    if (extension === "Add9") return `${root} ADD9`;
+    if (extension === "6") return `${root} 6`;
+    if (extension === "9") return `${root}9`;
+    return `${root} MAJOR`;
+  }
+  if (chord.type === "Minor") {
+    if (extension === "7") return `${root} MIN7`;
+    if (extension === "Add9") return `${root} MIN ADD9`;
+    if (extension === "6") return `${root} MIN6`;
+    if (extension === "9") return `${root} MIN9`;
+    if (extension === "Maj7") return `${root} MIN MAJ7`;
+    return `${root} MINOR`;
+  }
   const typeName: Record<ChordType, string> = {
     Major: "MAJOR",
     Minor: "MINOR",
     Sus2: "SUS2",
     Sus4: "SUS4",
-    Diminished: "DIMINISHED",
-    Augmented: "AUGMENTED",
+    Diminished: "DIM",
+    Augmented: "AUG",
     Power: "POWER",
   };
-  const extension = extensionFromModifiers(chord.modifiers);
   return `${root} ${typeName[chord.type]}${extension === "None" ? "" : ` ${extension.toUpperCase()}`}`;
 };
 

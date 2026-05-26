@@ -34,7 +34,8 @@ export function MidiManager() {
       input.onmidimessage = (event) => {
         if (!event.data) return;
         const source = event.currentTarget as MIDIInput | null;
-        if (source?.id && selectedInputRef.current !== source.id) {
+        if (source?.id && selectedInputRef.current && selectedInputRef.current !== source.id) return;
+        if (source?.id && !selectedInputRef.current) {
           selectedInputRef.current = source.id;
           selectMidiInput(source.id);
         }

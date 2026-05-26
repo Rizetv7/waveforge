@@ -32,6 +32,7 @@ execFileSync(
 const music = require(path.join(outDir, "lib/musicTheory.js"));
 const foundation = require(path.join(outDir, "lib/foundationTheory.js"));
 const harmony = require(path.join(outDir, "lib/harmonySuggestions.js"));
+const dreamLoops = require(path.join(outDir, "lib/dreamLoopTemplates.js"));
 
 const chordNotes = ({ root, type, extension = "None", keyMode = false, keyRoot = "C", scaleMode = "Major", flats = false, spread = 0 }) => {
   const chord = music.buildChord({
@@ -171,48 +172,178 @@ const build = ({ root, type = "Major", extension = "None", keyRoot = "C", scaleM
     motion: 0,
   });
 
-const suggestionsFor = ({ chord, keyRoot = "C", scaleMode = "Major", pathMode = "COLOUR", spread = 0 }) =>
+const suggestionsFor = ({ chord = null, keyRoot = "C", scaleMode = "Major", pathMode = "DREAM", spread = 0, history, phrase }) =>
   harmony.createHarmonySuggestions({
     currentChord: chord,
-    history: [chord],
+    history: history ?? (chord ? [chord] : []),
     keyRoot,
     scaleMode,
     keyModeEnabled: true,
     pathMode,
     spread,
+    phrase,
   });
 
 const byRoot = (suggestions) => new Map(suggestions.map((suggestion) => [suggestion.rootName, suggestion]));
 
-const cMajorHeat = byRoot(suggestionsFor({ chord: build({ root: "C" }) }));
-assert.equal(cMajorHeat.get("G").displayName, "G7", "C Major heatmap suggests G7");
-assert.equal(cMajorHeat.get("F").displayName, "Fmaj7", "C Major heatmap suggests Fmaj7");
-assert.equal(cMajorHeat.get("A").displayName, "Am7", "C Major heatmap suggests Am7");
-assert.equal(cMajorHeat.get("D").displayName, "Dm7", "C Major heatmap suggests Dm7");
-assert(cMajorHeat.get("G").confidence > cMajorHeat.get("C#").confidence, "G7 outranks chromatic low-fit option");
+assert(dreamLoops.dreamTemplateCountByContext.major >= 12, "DREAM contains at least 12 major loop families");
+assert(dreamLoops.dreamTemplateCountByContext.minor >= 8, "DREAM contains at least 8 minor loop families");
+
+const startHeat = byRoot(suggestionsFor({ chord: null, phrase: { currentStep: 1, chords: [null, null, null, null] } }));
+assert.equal(startHeat.get("C").displayName, "Cmaj7", "Empty DREAM phrase offers Cmaj7 as a curated start");
+assert(startHeat.get("C").confidence > 0.7, "Curated DREAM start is strongly visible");
+assert(startHeat.get("C#").confidence < 0.16, "Non-curated chromatic starts stay hidden in DREAM");
+
+const cMajorHeat = byRoot(suggestionsFor({ chord: build({ root: "C", extension: "Maj7" }), phrase: { currentStep: 2, chords: [build({ root: "C", extension: "Maj7" }), null, null, null] } }));
+assert.equal(cMajorHeat.get("F").displayName, "Fmaj7", "DREAM after Cmaj7 suggests Fmaj7 from a complete loop");
+assert.equal(cMajorHeat.get("A").displayName, "Am7", "DREAM after Cmaj7 suggests Am7 from a complete loop");
+assert(["G7", "Gsus4"].includes(cMajorHeat.get("G").displayName), "DREAM can offer dominant/suspended G only when it belongs to a curated loop");
+assert(cMajorHeat.get("F").confidence > cMajorHeat.get("G").confidence, "DREAM prefers IVmaj7 loop-building over early dominant movement");
+assert(cMajorHeat.get("C#").confidence < 0.16, "DREAM does not light roots without a complete curated loop");
 
 const cExplore = byRoot(suggestionsFor({ chord: build({ root: "C" }), pathMode: "EXPLORE" }));
 assert(cExplore.get("F").alternatives.some((item) => item.displayName === "Fm"), "Explore offers borrowed Fm alternative");
 assert.equal(cExplore.get("A#").displayName, "A#maj7", "Explore offers bVIImaj7 colour");
 
-const gSevenHeat = byRoot(suggestionsFor({ chord: build({ root: "G", extension: "7" }) }));
-assert(gSevenHeat.get("C").confidence > 0.7, "G7 resolves strongly to C");
-assert(gSevenHeat.get("C").confidence > gSevenHeat.get("D").confidence, "C outranks D after G7");
+const cMaj7 = build({ root: "C", extension: "Maj7" });
+const fMaj7 = build({ root: "F", extension: "Maj7" });
+const aMin7 = build({ root: "A", type: "Minor", extension: "7" });
+const aMinorSevenHeat = byRoot(suggestionsFor({
+  chord: aMin7,
+  history: [aMin7],
+  phrase: { currentStep: 2, chords: [aMin7, null, null, null] },
+}));
+assert.equal(aMinorSevenHeat.get("F").displayName, "Fmaj7", "Am7 starts curated loops toward Fmaj7");
+assert.equal(aMinorSevenHeat.get("D").displayName, "Dm7", "Am7 starts curated loops toward Dm7");
+assert(aMinorSevenHeat.get("C#").confidence < 0.16, "Am7 DREAM does not show roots without loop completion");
 
-const aMinorSevenHeat = byRoot(suggestionsFor({ chord: build({ root: "A", type: "Minor", extension: "7" }) }));
-assert.equal(aMinorSevenHeat.get("F").displayName, "Fmaj7", "Am7 suggests Fmaj7");
-assert.equal(aMinorSevenHeat.get("D").displayName, "Dm7", "Am7 suggests Dm7");
-assert.equal(aMinorSevenHeat.get("G").displayName, "G7", "Am7 suggests G7");
-assert.equal(aMinorSevenHeat.get("C").displayName, "Cmaj7", "Am7 suggests Cmaj7");
+const fSharpMaj7 = build({ root: "F#", extension: "Maj7", keyRoot: "F#", scaleMode: "Major", keyModeEnabled: true });
+const fSharpMajorHeat = byRoot(suggestionsFor({
+  chord: fSharpMaj7,
+  keyRoot: "F#",
+  scaleMode: "Major",
+  history: [fSharpMaj7],
+  phrase: { currentStep: 2, chords: [fSharpMaj7, null, null, null] },
+}));
+assert.equal(fSharpMajorHeat.get("B").displayName, "Bmaj7", "F# Major DREAM keeps IV on B");
+assert.equal(fSharpMajorHeat.get("D#").displayName, "D#m7", "F# Major DREAM keeps vi on D#");
+assert(fSharpMajorHeat.get("F").confidence < 0.16, "F# Major DREAM keeps unrelated black/white roots dark");
 
-const fSharpMajorHeat = byRoot(suggestionsFor({ chord: build({ root: "F#", keyRoot: "F#", scaleMode: "Major", keyModeEnabled: true }), keyRoot: "F#", scaleMode: "Major" }));
-assert.equal(fSharpMajorHeat.get("C#").displayName, "C#7", "F# Major heatmap keeps black-key dominant");
-assert.equal(fSharpMajorHeat.get("B").displayName, "Bmaj7", "F# Major heatmap keeps IV on B");
-assert.equal(fSharpMajorHeat.get("D#").displayName, "D#m7", "F# Major heatmap keeps vi on D#");
+const ebMin7 = build({ root: "D#", type: "Minor", extension: "7", keyRoot: "D#", scaleMode: "Natural Minor", keyModeEnabled: true });
+const ebMinorHeat = byRoot(suggestionsFor({
+  chord: ebMin7,
+  keyRoot: "D#",
+  scaleMode: "Natural Minor",
+  history: [ebMin7],
+  phrase: { currentStep: 2, chords: [ebMin7, null, null, null] },
+}));
+assert.equal(ebMinorHeat.get("B").displayName, "Bmaj7", "Eb Minor DREAM keeps VI colour on Cb/B");
+assert.equal(ebMinorHeat.get("G#").displayName, "G#m7", "Eb Minor DREAM keeps iv minor");
+assert(ebMinorHeat.get("C").confidence < 0.16, "Eb Minor DREAM hides roots without curated minor-loop completion");
+const phraseStep2 = byRoot(suggestionsFor({
+  chord: cMaj7,
+  history: [cMaj7],
+  phrase: { currentStep: 2, chords: [cMaj7, null, null, null] },
+}));
+assert.equal(phraseStep2.get("F").displayName, "Fmaj7", "Four-step DREAM step 2 suggests Fmaj7 after Cmaj7");
+assert(phraseStep2.get("F").confidence > phraseStep2.get("C#").confidence, "Four-step step 2 rejects low-fit chromatic roots");
+assert(phraseStep2.get("F").confidence >= 0.72, "Four-step DREAM step 2 gives Fmaj7 a strong complete-loop score");
+assert(phraseStep2.get("F").confidence > phraseStep2.get("G").confidence + 0.08, "Four-step DREAM step 2 clearly prefers IVmaj7 loop-building over early G7");
 
-const ebMinorHeat = byRoot(suggestionsFor({ chord: build({ root: "D#", keyRoot: "D#", scaleMode: "Natural Minor", keyModeEnabled: true }), keyRoot: "D#", scaleMode: "Natural Minor" }));
-assert.equal(ebMinorHeat.get("A#").displayName, "A#7", "Eb Minor heatmap uses major dominant V");
-assert.equal(ebMinorHeat.get("G#").displayName, "G#m7", "Eb Minor heatmap keeps iv minor");
+const phraseStep3 = byRoot(suggestionsFor({
+  chord: fMaj7,
+  history: [cMaj7, fMaj7],
+  phrase: { currentStep: 3, chords: [cMaj7, fMaj7, null, null] },
+}));
+assert(phraseStep3.get("A").confidence > 0.55, "Four-step step 3 keeps Am7 as a strong colour move");
+assert.equal(phraseStep3.get("F").displayName, "Fm", "Four-step DREAM step 3 promotes borrowed Fm only when it resolves inside a complete loop");
+assert(phraseStep3.get("F").confidence > 0.58, "Borrowed Fm receives a strong score through Imaj7-IVmaj7-iv-Imaj7");
+
+const phraseStep3Safe = byRoot(suggestionsFor({
+  chord: fMaj7,
+  history: [cMaj7, fMaj7],
+  pathMode: "SAFE",
+  phrase: { currentStep: 3, chords: [cMaj7, fMaj7, null, null] },
+}));
+assert.notEqual(phraseStep3Safe.get("F").displayName, "Fm", "SAFE does not promote borrowed Fm");
+
+const phraseStep4 = byRoot(suggestionsFor({
+  chord: aMin7,
+  history: [cMaj7, fMaj7, aMin7],
+  phrase: { currentStep: 4, chords: [cMaj7, fMaj7, aMin7, null] },
+}));
+assert.equal(phraseStep4.get("G").displayName, "G7", "Four-step step 4 suggests G7 turnaround");
+assert(phraseStep4.get("G").confidence >= 0.74, "Four-step step 4 gives G7 a strong loop-closure score");
+assert(phraseStep4.get("G").confidence > phraseStep4.get("A").confidence, "Four-step step 4 ranks loop return above repeating vi");
+
+const gSeven = build({ root: "G", extension: "7" });
+const dreamLoopScore = harmony.scoreCompleteFourChordLoop([cMaj7, fMaj7, aMin7, gSeven], {
+  keyRoot: "C",
+  scaleMode: "Major",
+  keyModeEnabled: true,
+  pathMode: "DREAM",
+  spread: 0,
+});
+const localButWeakLoopScore = harmony.scoreCompleteFourChordLoop([cMaj7, gSeven, fMaj7, aMin7], {
+  keyRoot: "C",
+  scaleMode: "Major",
+  keyModeEnabled: true,
+  pathMode: "DREAM",
+  spread: 0,
+});
+assert(dreamLoopScore > 0.78, "Curated DREAM loop receives a high complete-loop score");
+assert(dreamLoopScore > localButWeakLoopScore + 0.12, "Complete-loop score prefers coherent four-chord loop over local next-chord movement");
+
+const allRoots = music.NOTE_NAMES;
+const requiredDreamLoops = [
+  "dream-warm-open",
+  "dream-soft-sunset",
+  "dream-floating-home",
+  "dream-emotional-return",
+  "dream-psychedelic-lift",
+  "dream-dark-warm-turn",
+  "dream-minor-bloom",
+];
+requiredDreamLoops.forEach((templateId) => {
+  const template = dreamLoops.DREAM_LOOP_TEMPLATES.find((item) => item.id === templateId);
+  assert(template, `DREAM loop template exists: ${templateId}`);
+  const scaleMode = template.scaleContext === "minor" ? "Natural Minor" : "Major";
+  allRoots.forEach((keyRoot) => {
+    const resolved = harmony.resolveCuratedLoopTemplate(template, { keyRoot, scaleMode, spread: 0 });
+    assert.equal(resolved.length, 4, `${templateId} resolves to four chords in ${keyRoot}`);
+    resolved.forEach((chord, index) => {
+      assert(chord.midiNotes.length >= 3, `${templateId} slot ${index + 1} has playable notes in ${keyRoot}`);
+    });
+    const score = harmony.scoreCompleteFourChordLoop(resolved, {
+      keyRoot,
+      scaleMode,
+      keyModeEnabled: true,
+      pathMode: "DREAM",
+      spread: 0,
+    });
+    assert(score > 0.68, `${templateId} stays loopable when transposed to ${keyRoot} ${scaleMode}`);
+  });
+});
+
+const lockedLoop = [cMaj7, fMaj7, aMin7, gSeven];
+const lockedStep1 = byRoot(suggestionsFor({
+  chord: lockedLoop[3],
+  history: lockedLoop,
+  phrase: { currentStep: 1, status: "LOOP_FOLLOW", chords: lockedLoop },
+}));
+assert.equal(lockedStep1.get("C").displayName, "Cmaj7", "Locked loop returns to slot 1 Cmaj7");
+assert.equal(lockedStep1.get("C").confidence, 1, "Locked loop gives the stored next slot maximum confidence");
+assert(lockedStep1.get("C").confidence > lockedStep1.get("F").confidence, "Locked loop disables repetition penalties and local re-ranking");
+
+const lockedStep2 = byRoot(suggestionsFor({
+  chord: lockedLoop[0],
+  history: [...lockedLoop, lockedLoop[0]],
+  phrase: { currentStep: 2, status: "LOOP_FOLLOW", chords: lockedLoop },
+}));
+assert.equal(lockedStep2.get("F").displayName, "Fmaj7", "Locked loop step 2 follows the stored phrase");
+assert.equal(lockedStep2.get("F").confidence, 1, "Locked loop keeps the stored second chord stable");
+assert(lockedStep2.get("F").confidence > 0.9, "Locked loop expected chord is the only strong main path");
+assert(lockedStep2.get("G").confidence < 0.08, "Locked loop suppresses competing alternate heatmap paths");
 
 fs.rmSync(outDir, { recursive: true, force: true });
 console.log("Foundation theory tests passed.");

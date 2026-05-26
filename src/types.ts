@@ -56,7 +56,7 @@ export type DisplayMode =
   | "SMART_VIEW"
   | "MIDI_NOTIFICATION_VIEW";
 export type VoicingStage = "CLOSE" | "INV 1" | "INV 2" | "OPEN" | "WIDE" | "LOW" | "AIR";
-export type HarmonyPathMode = "SAFE" | "COLOUR" | "EXPLORE";
+export type HarmonyPathMode = "SAFE" | "DREAM" | "EXPLORE";
 export type HarmonySuggestionRole = "resolution" | "movement" | "colour" | "tension" | "experimental";
 
 export interface HarmonyAlternative {
@@ -238,6 +238,14 @@ export interface ChordResult {
   noteNames: string[];
   midiNotes: number[];
   bassMidi: number;
+}
+
+export type PhraseStep = 1 | 2 | 3 | 4;
+export type PhraseStatus = "BUILDING_PHRASE" | "LOOP_FOLLOW";
+
+export interface PhraseSlot {
+  step: PhraseStep;
+  chord: ChordResult | null;
 }
 
 export interface ActiveTrigger {

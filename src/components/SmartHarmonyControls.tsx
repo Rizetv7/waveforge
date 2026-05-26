@@ -1,7 +1,7 @@
 import { useAuraStore } from "../store/useAuraStore";
 import type { HarmonyPathMode } from "../types";
 
-const pathModes: HarmonyPathMode[] = ["SAFE", "COLOUR", "EXPLORE"];
+const pathModes: HarmonyPathMode[] = ["SAFE", "DREAM", "EXPLORE"];
 
 export function SmartHarmonyControls() {
   const smartEnabled = useAuraStore((state) => state.smartEnabled);
