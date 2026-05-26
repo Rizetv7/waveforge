@@ -438,73 +438,107 @@ export function FoundationTestApp() {
           </section>
         ) : null}
 
-        <section className="display-bay" aria-label="Display">
-          <div className="foundation-display">
-            <div className="display-glass" />
-            <div className="display-content">
-              <div key={displayMain} className="display-main">
-                {displayMain}
+        <section className="foundation-cockpit" aria-label="Display und Performance Controls">
+          <section className="foundation-expression-row" aria-label="Voicing und Sound">
+            <VoicingEncoder value={voicingIndex} stages={VOICING_STAGES} onChange={setVoicingIndex} />
+            <div className="selector-bank" aria-label="Sound und Arp">
+              <div className="sound-selector" aria-label="Instrument Preset">
+                <span className="sound-label">SOUND</span>
+                <div className="sound-stepper">
+                  <button type="button" onClick={() => stepPreset(-1)} aria-label="Vorheriger Sound">‹</button>
+                  <strong>{activePresetName}</strong>
+                  <button type="button" onClick={() => stepPreset(1)} aria-label="Naechster Sound">›</button>
+                </div>
+                <div className="selector-position" aria-label={`Sound ${presetIndex + 1} von ${foundationSoundNames.length}`}>
+                  {foundationSoundNames.map((name, index) => (
+                    <span key={name} className={index === presetIndex ? "active" : ""} />
+                  ))}
+                </div>
               </div>
-              <div className={`display-tone-trace ${traceRange?.twoOctave ? "two-octave" : "compact"} ${traceRange ? "" : "empty"}`} aria-label="Aktuell klingende Akkordtoene">
-                <div className="tone-rail" />
-                {traceRange
-                  ? displayMarkers.map((marker) => {
-                    const midi = marker.midi;
-                    const pitch = normalizePitch(midi);
-                    const active = marker.active && outputMidiSet.has(midi);
-                    const root = active && marker.root;
-                    const left = `${((midi - traceRange.start) / Math.max(1, traceRange.end - traceRange.start)) * 100}%`;
-                    return (
-                      <span
-                        key={marker.id}
-                        className={[
-                          "tone-marker",
-                          blackPitches.includes(pitch) ? "black-tone" : "white-tone",
-                          active ? "active-tone" : "",
-                          root ? "root-tone" : "",
-                          activeArpNote === midi ? "arp-tone" : "",
-                          !marker.active ? "ghost-tone" : "",
-                        ].filter(Boolean).join(" ")}
-                        style={{ left }}
-                        title={readableMidiName(midi, preferFlats)}
-                      >
-                        {noteNameForPitch(midi, preferFlats)}
-                      </span>
-                    );
-                  })
-                  : null}
-              </div>
-              <div key={displaySub || "empty-footer"} className={`display-footer ${displaySub ? "" : "empty"}`}>
-                {displaySub || "\u00a0"}
-              </div>
-              <div
-                key={`phrase-${phraseAdvanceToken}-${phraseReturnToken}-${focusedSuggestionId}`}
-                className={`phrase-reel ${phraseIsReturning ? "returning" : ""}`}
-                aria-label="Four Step Chord Reel"
-              >
-                <div className="phrase-track" />
-                {phraseSlots.map((slot, index) => {
-                  const preview = index === phrasePreviewIndex && phrasePreviewLabel;
-                  const label = preview || (slot.chord ? reelChordLabel(slot.chord, preferFlats) : "");
-                  return (
-                    <span
-                      key={slot.step}
-                      className={[
-                        "phrase-slot",
-                        slot.chord ? "filled" : "",
-                        index === phraseCurrentIndex ? "recent" : "",
-                        index === phrasePreviewIndex ? "armed" : "",
-                        preview ? "preview" : "",
-                      ].filter(Boolean).join(" ")}
-                    >
-                      <i>{slot.step}</i>
-                      <b>{label}</b>
-                    </span>
-                  );
-                })}
+              <div className={`sound-selector arp-selector ${arp.enabled ? "arp-active" : ""}`} aria-label="Arpeggiator Pattern">
+                <span className="sound-label">ARP</span>
+                <div className="sound-stepper">
+                  <button type="button" onClick={() => stepArpPattern(-1)} aria-label="Vorheriger Arp">‹</button>
+                  <strong>{activeArpPattern.label}</strong>
+                  <button type="button" onClick={() => stepArpPattern(1)} aria-label="Naechster Arp">›</button>
+                </div>
+                <div className="selector-position" aria-label={`Arp ${activeArpIndex + 1} von ${foundationArpPatterns.length}`}>
+                  {foundationArpPatterns.map((pattern, index) => (
+                    <span key={pattern.label} className={index === activeArpIndex ? "active" : ""} />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section className="display-bay" aria-label="Display">
+            <div className="foundation-display">
+              <div className="display-glass" />
+              <div className="display-content">
+                <div key={displayMain} className="display-main">
+                  {displayMain}
+                </div>
+                <div className={`display-tone-trace ${traceRange?.twoOctave ? "two-octave" : "compact"} ${traceRange ? "" : "empty"}`} aria-label="Aktuell klingende Akkordtoene">
+                  <div className="tone-rail" />
+                  {traceRange
+                    ? displayMarkers.map((marker) => {
+                      const midi = marker.midi;
+                      const pitch = normalizePitch(midi);
+                      const active = marker.active && outputMidiSet.has(midi);
+                      const root = active && marker.root;
+                      const left = `${((midi - traceRange.start) / Math.max(1, traceRange.end - traceRange.start)) * 100}%`;
+                      return (
+                        <span
+                          key={marker.id}
+                          className={[
+                            "tone-marker",
+                            blackPitches.includes(pitch) ? "black-tone" : "white-tone",
+                            active ? "active-tone" : "",
+                            root ? "root-tone" : "",
+                            activeArpNote === midi ? "arp-tone" : "",
+                            !marker.active ? "ghost-tone" : "",
+                          ].filter(Boolean).join(" ")}
+                          style={{ left }}
+                          title={readableMidiName(midi, preferFlats)}
+                        >
+                          {noteNameForPitch(midi, preferFlats)}
+                        </span>
+                      );
+                    })
+                    : null}
+                </div>
+                <div key={displaySub || "empty-footer"} className={`display-footer ${displaySub ? "" : "empty"}`}>
+                  {displaySub || "\u00a0"}
+                </div>
+                <div
+                  key={`phrase-${phraseAdvanceToken}-${phraseReturnToken}-${focusedSuggestionId}`}
+                  className={`phrase-reel ${phraseIsReturning ? "returning" : ""}`}
+                  aria-label="Four Step Chord Reel"
+                >
+                  <div className="phrase-track" />
+                  {phraseSlots.map((slot, index) => {
+                    const preview = index === phrasePreviewIndex && phrasePreviewLabel;
+                    const label = preview || (slot.chord ? reelChordLabel(slot.chord, preferFlats) : "");
+                    return (
+                      <span
+                        key={slot.step}
+                        className={[
+                          "phrase-slot",
+                          slot.chord ? "filled" : "",
+                          index === phraseCurrentIndex ? "recent" : "",
+                          index === phrasePreviewIndex ? "armed" : "",
+                          preview ? "preview" : "",
+                        ].filter(Boolean).join(" ")}
+                      >
+                        <i>{slot.step}</i>
+                        <b>{label}</b>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section className="foundation-grid" aria-label="Musiksteuerung">
@@ -569,38 +603,6 @@ export function FoundationTestApp() {
               <span>PHRASE</span>
               <button type="button" onClick={newPhrase} disabled={!keyModeEnabled}>NEW</button>
               <button type="button" onClick={clearPhrase}>CLEAR</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="foundation-expression-row" aria-label="Voicing und Sound">
-          <VoicingEncoder value={voicingIndex} stages={VOICING_STAGES} onChange={setVoicingIndex} />
-          <div className="selector-bank" aria-label="Sound und Arp">
-            <div className="sound-selector" aria-label="Instrument Preset">
-              <span className="sound-label">SOUND</span>
-              <div className="sound-stepper">
-                <button type="button" onClick={() => stepPreset(-1)} aria-label="Vorheriger Sound">‹</button>
-                <strong>{activePresetName}</strong>
-                <button type="button" onClick={() => stepPreset(1)} aria-label="Naechster Sound">›</button>
-              </div>
-              <div className="selector-position" aria-label={`Sound ${presetIndex + 1} von ${foundationSoundNames.length}`}>
-                {foundationSoundNames.map((name, index) => (
-                  <span key={name} className={index === presetIndex ? "active" : ""} />
-                ))}
-              </div>
-            </div>
-            <div className={`sound-selector arp-selector ${arp.enabled ? "arp-active" : ""}`} aria-label="Arpeggiator Pattern">
-              <span className="sound-label">ARP</span>
-              <div className="sound-stepper">
-                <button type="button" onClick={() => stepArpPattern(-1)} aria-label="Vorheriger Arp">‹</button>
-                <strong>{activeArpPattern.label}</strong>
-                <button type="button" onClick={() => stepArpPattern(1)} aria-label="Naechster Arp">›</button>
-              </div>
-              <div className="selector-position" aria-label={`Arp ${activeArpIndex + 1} von ${foundationArpPatterns.length}`}>
-                {foundationArpPatterns.map((pattern, index) => (
-                  <span key={pattern.label} className={index === activeArpIndex ? "active" : ""} />
-                ))}
-              </div>
             </div>
           </div>
         </section>
