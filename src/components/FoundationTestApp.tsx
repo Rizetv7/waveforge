@@ -18,7 +18,7 @@ import {
 import { getSuggestionVariant } from "../lib/harmonySuggestions";
 import { NOTE_NAMES, normalizePitch, noteToPitch, VOICING_STAGES, voicingStageIndex } from "../lib/musicTheory";
 import { useAuraStore } from "../store/useAuraStore";
-import type { ArpeggiatorState, ChordModifier, ChordResult, ChordType, HarmonyPathMode, NoteName } from "../types";
+import type { ArpeggiatorState, ChordModifier, ChordResult, ChordType, HarmonyPathMode, NoteName, RecordedMidiNote } from "../types";
 
 const qwerty = ["A", "W", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J"];
 const foundationSoundNames = ["TEST POLY", "WARM POLY", "TAPE KEYS", "DREAM PAD"];
@@ -65,6 +65,8 @@ type DisplayToneMarker = {
   active: boolean;
   root: boolean;
 };
+
+const takeNumberLabel = (number: number) => `TAKE ${String(number).padStart(2, "0")}`;
 
 const displayToneRange = (notes: number[]) => {
   if (!notes.length) return undefined;
@@ -127,6 +129,20 @@ export function FoundationTestApp() {
   const displayFlash = useAuraStore((state) => state.displayFlash);
   const flashDisplay = useAuraStore((state) => state.flashDisplay);
   const clearExpiredDisplay = useAuraStore((state) => state.clearExpiredDisplay);
+  const midiRecording = useAuraStore((state) => state.midiRecording);
+  const midiTakePlaying = useAuraStore((state) => state.midiTakePlaying);
+  const midiTake = useAuraStore((state) => state.midiTake);
+  const midiRecordingBpm = useAuraStore((state) => state.midiRecordingBpm);
+  const midiRecordingChordEvents = useAuraStore((state) => state.midiRecordingChordEvents);
+  const midiRecordingArpEvents = useAuraStore((state) => state.midiRecordingArpEvents);
+  const midiRecordingOpenNotes = useAuraStore((state) => state.midiRecordingOpenNotes);
+  const startMidiRecording = useAuraStore((state) => state.startMidiRecording);
+  const stopMidiRecording = useAuraStore((state) => state.stopMidiRecording);
+  const clearMidiTake = useAuraStore((state) => state.clearMidiTake);
+  const captureLockedPhrase = useAuraStore((state) => state.captureLockedPhrase);
+  const playMidiTake = useAuraStore((state) => state.playMidiTake);
+  const stopMidiTakePlayback = useAuraStore((state) => state.stopMidiTakePlayback);
+  const saveMidiTake = useAuraStore((state) => state.saveMidiTake);
   const playRoot = useAuraStore((state) => state.playRoot);
   const releaseRoot = useAuraStore((state) => state.releaseRoot);
   const activeRoots = useAuraStore((state) => state.activeRoots);
@@ -190,6 +206,7 @@ export function FoundationTestApp() {
   const phraseCurrentIndex = (phraseStep + 2) % 4;
   const phrasePreviewIndex = phraseStep - 1;
   const phraseIsReturning = activeReturnToken === phraseReturnToken && phraseReturnToken > 0 && phraseStep === 1 && phraseSlots.every((slot) => slot.chord);
+  const hasPhraseContent = phraseSlots.some((slot) => slot.chord) || Boolean(phrasePreviewLabel);
   const chordName = displayChord ? chordDisplayName(displayChord, preferFlats) : "-";
   const playedText = displayChord
     ? `${chordName}${degree ? ` · ${degree.roman}` : ""}`
@@ -205,6 +222,7 @@ export function FoundationTestApp() {
   const activeInput = midiDevices.find((device) => device.id === selectedMidiInputId);
   const activeOutput = midiOutputs.find((device) => device.id === selectedMidiOutputId);
   const [midiServiceOpen, setMidiServiceOpen] = useState(false);
+  const [midiRecorderMode, setMidiRecorderMode] = useState<"LIVE" | "LOOP">("LIVE");
   const voicingIndex = voicingStageIndex(spread);
   const voicingName = VOICING_STAGES[voicingIndex];
   const presetIndex = foundationSoundNames.includes(activePresetName) ? foundationSoundNames.indexOf(activePresetName) : 0;
@@ -219,6 +237,45 @@ export function FoundationTestApp() {
   }, [arp.direction, arp.enabled, arp.rate]);
   const activeArpPattern = foundationArpPatterns[activeArpIndex] ?? foundationArpPatterns[0];
   const keyIndex = Math.max(0, foundationKeys.findIndex((item) => item.id === key.id));
+  const recordingOpenEvents = useMemo<RecordedMidiNote[]>(
+    () => Object.values(midiRecordingOpenNotes).flat().map((event) => ({ ...event, durationBeats: Math.max(event.durationBeats, 0.35) })),
+    [midiRecordingOpenNotes],
+  );
+  const midiTraceEvents = useMemo<RecordedMidiNote[]>(
+    () => {
+      if (midiRecording) return [...midiRecordingChordEvents, ...midiRecordingArpEvents, ...recordingOpenEvents];
+      if (midiTake) return [...midiTake.chordEvents, ...midiTake.arpEvents];
+      return [];
+    },
+    [midiRecording, midiRecordingChordEvents, midiRecordingArpEvents, recordingOpenEvents, midiTake],
+  );
+  const midiTraceBars = Math.max(
+    1,
+    midiRecording
+      ? Math.ceil(Math.max(4, ...midiTraceEvents.map((event) => event.startBeats + event.durationBeats)) / 4)
+      : midiTake?.bars ?? 4,
+  );
+  const midiTraceTotalBeats = Math.max(4, midiTraceBars * 4);
+  const midiTracePitchRange = useMemo(() => {
+    if (!midiTraceEvents.length) return { start: 48, end: 72 };
+    const notes = midiTraceEvents.map((event) => event.midiNote);
+    const min = Math.min(...notes);
+    const max = Math.max(...notes);
+    const start = Math.max(0, Math.floor((min - 2) / 12) * 12);
+    const end = Math.min(127, Math.max(start + 12, Math.ceil((max + 2) / 12) * 12));
+    return { start, end };
+  }, [midiTraceEvents]);
+  const midiTraceLaneNotes = useMemo(
+    () => uniqueSorted(midiTraceEvents.map((event) => event.midiNote)),
+    [midiTraceEvents],
+  );
+  const midiRollDurationSeconds = Math.max(
+    1.2,
+    (midiTraceTotalBeats / (midiRecording ? midiRecordingBpm : midiTake?.bpm ?? midiRecordingBpm)) * 60,
+  );
+  const midiTakeLabel = midiTake ? takeNumberLabel(midiTake.number) : "NO TAKE";
+  const lockedPhraseReady = phraseStatus === "LOOP_FOLLOW" && phraseSlots.every((slot) => slot.chord);
+  const displayIsRecord = Boolean(midiRecording || midiTakePlaying || displayFlash?.mode === "RECORD_VIEW");
   const displayIsVoicing = displayFlash?.title === "VOICING";
   const displayIsSound = displayFlash?.title === "PRESET";
   const displayIsArp = displayFlash?.title === "ARP" || displayFlash?.title === "ARP OFF";
@@ -228,32 +285,45 @@ export function FoundationTestApp() {
     displayFlash.title.startsWith("LOOP ")
   ));
   const displayHarmonyLine = [displayFlash?.title, displayFlash?.lines[0]].filter(Boolean).join(" · ");
-  const displayMain = displayIsVoicing
-    ? `VOICING · ${voicingName}`
-    : displayIsSound
-      ? activePresetName
-      : displayIsArp
-        ? displayFlash.title === "ARP OFF" ? "ARP" : "ARP"
-        : displayIsHarmony
-          ? displayHarmonyLine
-          : hasAudibleChord
-            ? playedText
-            : activePresetName;
-  const displaySub = displayIsVoicing
-    ? hasAudibleChord ? playedText : ""
-    : displayIsSound
-      ? ""
-      : displayIsArp
-        ? displayFlash?.lines[0] ?? activeArpPattern.label
-        : displayIsHarmony
-          ? ""
-          : hasAudibleChord
-            ? output
-            : "";
+  const displayMain = midiRecording
+    ? `REC · ${midiRecorderMode}`
+    : midiTakePlaying && midiTake
+      ? `PLAY ${midiTakeLabel}`
+      : displayIsRecord
+        ? displayFlash?.title ?? midiTakeLabel
+        : displayIsVoicing
+          ? `VOICING · ${voicingName}`
+          : displayIsSound
+            ? activePresetName
+            : displayIsArp
+              ? displayFlash.title === "ARP OFF" ? "ARP" : "ARP"
+              : displayIsHarmony
+                ? displayHarmonyLine
+                : hasAudibleChord
+                  ? playedText
+                  : activePresetName;
+  const displaySub = midiRecording
+    ? `${midiTraceBars} BAR · ${midiRecordingBpm} BPM`
+    : midiTakePlaying && midiTake
+      ? `${midiTake.bars} BAR MIDI`
+      : displayIsRecord
+        ? displayFlash?.lines[0] ?? (midiTake ? `${midiTake.bars} BAR MIDI` : "")
+        : displayIsVoicing
+          ? hasAudibleChord ? playedText : ""
+          : displayIsSound
+            ? ""
+            : displayIsArp
+              ? displayFlash?.lines[0] ?? activeArpPattern.label
+              : displayIsHarmony
+                ? ""
+                : hasAudibleChord
+                  ? output
+                  : "";
   const [displayMarkers, setDisplayMarkers] = useState<DisplayToneMarker[]>([]);
   const displayMarkerId = useRef(0);
   const displayNoteKey = outputMidiNotes.join(",");
   const traceRange = useMemo(() => displayToneRange(displayMarkers.map((marker) => marker.midi)), [displayMarkers]);
+  const showMidiTapeTrace = displayIsRecord;
 
   useEffect(() => {
     const timer = window.setInterval(clearExpiredDisplay, 120);
@@ -478,9 +548,51 @@ export function FoundationTestApp() {
                 <div key={displayMain} className="display-main">
                   {displayMain}
                 </div>
-                <div className={`display-tone-trace ${traceRange?.twoOctave ? "two-octave" : "compact"} ${traceRange ? "" : "empty"}`} aria-label="Aktuell klingende Akkordtoene">
+                <div
+                  className={`display-tone-trace ${showMidiTapeTrace ? "midi-trace" : traceRange?.twoOctave ? "two-octave" : "compact"} ${showMidiTapeTrace || traceRange ? "" : "empty"}`}
+                  aria-label={showMidiTapeTrace ? "MIDI Tape Trace" : "Aktuell klingende Akkordtoene"}
+                >
                   <div className="tone-rail" />
-                  {traceRange
+                  {showMidiTapeTrace ? (
+                    <div className={`midi-tape-trace ${midiRecording ? "recording" : ""} ${midiTakePlaying ? "playing" : ""}`}>
+                      <div className="midi-roll-lanes" aria-hidden="true">
+                        {midiTraceLaneNotes.map((midi) => {
+                          const ratio = (midi - midiTracePitchRange.start) / Math.max(1, midiTracePitchRange.end - midiTracePitchRange.start);
+                          return (
+                            <span
+                              key={`lane-${midi}`}
+                              style={{ top: `${90 - ratio * 80}%` }}
+                              title={readableMidiName(midi, preferFlats)}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="midi-tape-bars" aria-hidden="true">
+                        {Array.from({ length: midiTraceBars }).map((_, index) => (
+                          <span key={`bar-${index}`} style={{ left: `${(index / Math.max(1, midiTraceBars)) * 100}%` }} />
+                        ))}
+                      </div>
+                      {midiTraceEvents.slice(-96).map((event, index) => {
+                        const pitchRatio = (event.midiNote - midiTracePitchRange.start) / Math.max(1, midiTracePitchRange.end - midiTracePitchRange.start);
+                        const left = `${Math.min(99, Math.max(0, (event.startBeats / midiTraceTotalBeats) * 100))}%`;
+                        const width = `${Math.max(event.source === "arp" ? 0.65 : 3.2, (event.durationBeats / midiTraceTotalBeats) * 100)}%`;
+                        const top = `${90 - pitchRatio * 80}%`;
+                        return (
+                          <span
+                            key={`midi-tape-${event.source}-${event.midiNote}-${event.startBeats}-${index}`}
+                            className={`midi-tape-event ${event.source}`}
+                            style={{ left, width, top }}
+                            title={`${readableMidiName(event.midiNote, preferFlats)} · ${event.source.toUpperCase()}`}
+                          />
+                        );
+                      })}
+                      <span
+                        className="midi-roll-playhead"
+                        style={{ ["--midi-roll-duration" as string]: `${midiRollDurationSeconds}s` }}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  ) : traceRange
                     ? displayMarkers.map((marker) => {
                       const midi = marker.midi;
                       const pitch = normalizePitch(midi);
@@ -510,32 +622,40 @@ export function FoundationTestApp() {
                 <div key={displaySub || "empty-footer"} className={`display-footer ${displaySub ? "" : "empty"}`}>
                   {displaySub || "\u00a0"}
                 </div>
-                <div
-                  key={`phrase-${phraseAdvanceToken}-${phraseReturnToken}-${focusedSuggestionId}`}
-                  className={`phrase-reel ${phraseIsReturning ? "returning" : ""}`}
-                  aria-label="Four Step Chord Reel"
-                >
-                  <div className="phrase-track" />
-                  {phraseSlots.map((slot, index) => {
-                    const preview = index === phrasePreviewIndex && phrasePreviewLabel;
-                    const label = preview || (slot.chord ? reelChordLabel(slot.chord, preferFlats) : "");
-                    return (
-                      <span
-                        key={slot.step}
-                        className={[
-                          "phrase-slot",
-                          slot.chord ? "filled" : "",
-                          index === phraseCurrentIndex ? "recent" : "",
-                          index === phrasePreviewIndex ? "armed" : "",
-                          preview ? "preview" : "",
-                        ].filter(Boolean).join(" ")}
-                      >
-                        <i>{slot.step}</i>
-                        <b>{label}</b>
-                      </span>
-                    );
-                  })}
-                </div>
+                {showMidiTapeTrace ? (
+                  <div className="midi-roll-footer" aria-label="MIDI Roll Status">
+                    {midiTraceEvents.length ? `${midiTraceEvents.length} NOTES · ${midiTraceBars} BAR` : "ARMED"}
+                  </div>
+                ) : hasPhraseContent ? (
+                  <div
+                    key={`phrase-${phraseAdvanceToken}-${phraseReturnToken}-${focusedSuggestionId}`}
+                    className={`phrase-reel ${phraseIsReturning ? "returning" : ""}`}
+                    aria-label="Four Step Chord Reel"
+                  >
+                    <div className="phrase-track" />
+                    {phraseSlots.map((slot, index) => {
+                      const preview = index === phrasePreviewIndex && phrasePreviewLabel;
+                      const label = preview || (slot.chord ? reelChordLabel(slot.chord, preferFlats) : "");
+                      return (
+                        <span
+                          key={slot.step}
+                          className={[
+                            "phrase-slot",
+                            slot.chord ? "filled" : "",
+                            index === phraseCurrentIndex ? "recent" : "",
+                            index === phrasePreviewIndex ? "armed" : "",
+                            preview ? "preview" : "",
+                          ].filter(Boolean).join(" ")}
+                        >
+                          <i>{slot.step}</i>
+                          <b>{label}</b>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="display-reel-placeholder" aria-hidden="true" />
+                )}
               </div>
             </div>
           </section>
@@ -603,6 +723,76 @@ export function FoundationTestApp() {
               <span>PHRASE</span>
               <button type="button" onClick={newPhrase} disabled={!keyModeEnabled}>NEW</button>
               <button type="button" onClick={clearPhrase}>CLEAR</button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          className={`midi-take-recorder-strip ${midiRecording ? "is-recording" : ""} ${midiTake ? "has-take" : ""} ${midiTakePlaying ? "is-playing" : ""}`}
+          aria-label="MIDI Take Recorder"
+        >
+          <div className="recorder-title-block">
+            <span className="capture-led" aria-hidden="true" />
+            <div>
+              <strong>MIDI TAKE RECORDER</strong>
+              <small>{midiRecording ? "LIVE REC" : midiTakePlaying ? "PLAYBACK" : midiTake ? "TAKE READY" : "STANDBY"}</small>
+            </div>
+          </div>
+
+          <div className="recorder-mode-switch" aria-label="Recording Mode">
+            <button type="button" className={midiRecorderMode === "LIVE" ? "active" : ""} onClick={() => setMidiRecorderMode("LIVE")}>
+              LIVE
+            </button>
+            <button type="button" className={midiRecorderMode === "LOOP" ? "active" : ""} onClick={() => setMidiRecorderMode("LOOP")}>
+              LOOP
+            </button>
+          </div>
+
+          <div className="recorder-transport" aria-label="MIDI Transport">
+            {midiRecorderMode === "LOOP" ? (
+              <button type="button" className="print-button" onClick={captureLockedPhrase} disabled={!lockedPhraseReady || midiRecording}>
+                PRINT
+              </button>
+            ) : (
+              <button type="button" className="rec-button" onClick={() => void startMidiRecording()} disabled={midiRecording}>
+                REC
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={midiRecording ? stopMidiRecording : stopMidiTakePlayback}
+              disabled={!midiRecording && !midiTakePlaying}
+            >
+              STOP
+            </button>
+            <button
+              type="button"
+              onClick={() => playMidiTake(midiTake?.arpEvents.length ? "ARP" : "CHORDS")}
+              disabled={!midiTake || midiRecording}
+            >
+              PLAY
+            </button>
+          </div>
+
+          <div className="recorder-take-section">
+            {midiTake ? (
+              <div className="midi-take-cartridge" aria-label={`${midiTakeLabel} MIDI`}>
+                <span>{midiTakeLabel}</span>
+                <small>{midiTake.bars} BAR .MID</small>
+              </div>
+            ) : (
+              <span className="midi-take-empty">NO TAKE</span>
+            )}
+            <div className="take-actions">
+              {midiTake?.arpEvents.length ? (
+                <>
+                  <button type="button" onClick={() => saveMidiTake("CHORDS")} disabled={!midiTake || midiRecording}>CHORD</button>
+                  <button type="button" onClick={() => saveMidiTake("ARP")} disabled={!midiTake || midiRecording}>ARP</button>
+                </>
+              ) : (
+                <button type="button" onClick={() => saveMidiTake("CHORDS")} disabled={!midiTake || midiRecording}>SAVE MIDI</button>
+              )}
+              <button type="button" onClick={clearMidiTake} disabled={!midiTake || midiRecording}>CLEAR TAKE</button>
             </div>
           </div>
         </section>

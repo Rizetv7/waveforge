@@ -22,6 +22,7 @@ execFileSync(
     "--outDir",
     outDir,
     path.join(projectRoot, "src/types.ts"),
+    path.join(projectRoot, "src/lib/export.ts"),
     path.join(projectRoot, "src/lib/musicTheory.ts"),
     path.join(projectRoot, "src/lib/foundationTheory.ts"),
     path.join(projectRoot, "src/lib/harmonySuggestions.ts"),
@@ -33,6 +34,7 @@ const music = require(path.join(outDir, "lib/musicTheory.js"));
 const foundation = require(path.join(outDir, "lib/foundationTheory.js"));
 const harmony = require(path.join(outDir, "lib/harmonySuggestions.js"));
 const dreamLoops = require(path.join(outDir, "lib/dreamLoopTemplates.js"));
+const midiExport = require(path.join(outDir, "lib/export.js"));
 
 const chordNotes = ({ root, type, extension = "None", keyMode = false, keyRoot = "C", scaleMode = "Major", flats = false, spread = 0 }) => {
   const chord = music.buildChord({
@@ -345,5 +347,67 @@ assert.equal(lockedStep2.get("F").confidence, 1, "Locked loop keeps the stored s
 assert(lockedStep2.get("F").confidence > 0.9, "Locked loop expected chord is the only strong main path");
 assert(lockedStep2.get("G").confidence < 0.08, "Locked loop suppresses competing alternate heatmap paths");
 
-fs.rmSync(outDir, { recursive: true, force: true });
-console.log("Foundation theory tests passed.");
+const countBytes = (bytes, sequence) => {
+  let count = 0;
+  for (let index = 0; index <= bytes.length - sequence.length; index += 1) {
+    if (sequence.every((byte, offset) => bytes[index + offset] === byte)) count += 1;
+  }
+  return count;
+};
+
+const testMidiTakeExport = async () => {
+  const take = {
+    id: "test-midi-take",
+    number: 1,
+    name: "TAKE 01",
+    bpm: 90,
+    timeSignature: { numerator: 4, denominator: 4 },
+    bars: 4,
+    key: "C Major",
+    phraseChords: ["Cmaj7", "Fmaj7", "Am7", "G7"],
+    soundName: "WARM POLY",
+    arpName: "DREAM CASCADE",
+    voicing: "OPEN",
+    createdAt: Date.now(),
+    chordEvents: [
+      { midiNote: 48, velocity: 0.82, startBeats: 0, durationBeats: 4, channel: 0, source: "chord" },
+      { midiNote: 55, velocity: 0.82, startBeats: 0, durationBeats: 4, channel: 0, source: "chord" },
+      { midiNote: 64, velocity: 0.82, startBeats: 0, durationBeats: 4, channel: 0, source: "chord" },
+      { midiNote: 53, velocity: 0.82, startBeats: 4, durationBeats: 4, channel: 0, source: "chord" },
+      { midiNote: 60, velocity: 0.82, startBeats: 4, durationBeats: 4, channel: 0, source: "chord" },
+      { midiNote: 64, velocity: 0.82, startBeats: 4, durationBeats: 4, channel: 0, source: "chord" },
+    ],
+    arpEvents: [
+      { midiNote: 48, velocity: 0.62, startBeats: 0, durationBeats: 0.25, channel: 0, source: "arp" },
+      { midiNote: 55, velocity: 0.62, startBeats: 0.25, durationBeats: 0.25, channel: 0, source: "arp" },
+      { midiNote: 64, velocity: 0.62, startBeats: 0.5, durationBeats: 0.25, channel: 0, source: "arp" },
+    ],
+  };
+
+  const chordBlob = midiExport.buildMidiTakeFile(take, "CHORDS");
+  const chordInfo = await midiExport.inspectMidiFile(chordBlob);
+  assert.equal(chordInfo.validHeader, true, "Chord MIDI export writes an MThd header");
+  assert.equal(chordInfo.declaredTracks, 2, "Chord MIDI export uses format 1 with a meta and note track");
+  assert.equal(chordInfo.actualTracks, 2, "Chord MIDI export writes two MTrk chunks");
+  assert.equal(chordInfo.ticksPerQuarter, 480, "Chord MIDI export uses 480 PPQ");
+  assert(chordInfo.byteLength > 80, "Chord MIDI export is not empty");
+
+  const arpBlob = midiExport.buildMidiTakeFile(take, "ARP");
+  const arpInfo = await midiExport.inspectMidiFile(arpBlob);
+  assert.equal(arpInfo.validHeader, true, "ARP MIDI export writes an MThd header");
+  assert.equal(arpInfo.declaredTracks, 2, "ARP MIDI export uses two tracks");
+  const arpBytes = new Uint8Array(await arpBlob.arrayBuffer());
+  assert(countBytes(arpBytes, [0x90]) >= take.arpEvents.length, "ARP MIDI export contains note-on events for arp notes");
+  assert(midiExport.midiTakeFilename(take, "ARP").endsWith(".mid"), "MIDI take filename has .mid extension");
+};
+
+testMidiTakeExport()
+  .then(() => {
+    fs.rmSync(outDir, { recursive: true, force: true });
+    console.log("Foundation theory tests passed.");
+  })
+  .catch((error) => {
+    fs.rmSync(outDir, { recursive: true, force: true });
+    console.error(error);
+    process.exitCode = 1;
+  });

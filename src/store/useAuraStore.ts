@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { bassPresets, defaultArp, defaultFx, drumPatterns, factoryPresets, leadPresets, randomBass, randomDrum, randomLead } from "../data/presets";
 import { auraAudio } from "../lib/audioEngine";
-import { buildMidiFile, downloadBlob } from "../lib/export";
+import { buildMidiFile, buildMidiTakeFile, downloadBlob, midiTakeFilename } from "../lib/export";
 import { createHarmonySuggestions, getSuggestionVariant, hasCuratedLoopContinuation } from "../lib/harmonySuggestions";
 import { extensionToModifiers, type FoundationExtension } from "../lib/foundationTheory";
 import { buildChord, displayChordLabel, formatNoteList, midiToNoteName, NOTE_NAMES, noteToMidi, noteToPitch, pitchToNote, voicingStageName } from "../lib/musicTheory";
@@ -28,15 +28,19 @@ import type {
   LayerState,
   LoopEvent,
   LoopLayer,
+  MidiCaptureEvent,
   MidiDeviceInfo,
   MidiMapping,
   MidiPermission,
   MidiPlayMode,
+  MidiTake,
+  MidiTakeExportKind,
   NoteName,
   PerformanceMode,
   PhraseSlot,
   PhraseStatus,
   PhraseStep,
+  RecordedMidiNote,
   SavedLoop,
   ScaleMode,
   SoundAuditItem,
@@ -80,6 +84,7 @@ const releaseTailMs = 1200;
 let loopTimer: number | null = null;
 let lastLoopPos = 0;
 let ideaPlaybackTimers: number[] = [];
+let midiTakePlaybackTimers: number[] = [];
 let fpsTimer: number | null = null;
 
 const inputKeyFor = (source: InputSource, root: NoteName, inputMidi?: number) => `${source}:${inputMidi ?? root}`;
@@ -264,6 +269,16 @@ interface AuraState {
   phraseStatus: PhraseStatus;
   phraseAdvanceToken: number;
   phraseReturnToken: number;
+  midiRecording: boolean;
+  midiTakePlaying: boolean;
+  midiTake: MidiTake | null;
+  midiTakeCounter: number;
+  midiRecordingStartedAt: number;
+  midiRecordingBpm: number;
+  midiRecordingChordEvents: RecordedMidiNote[];
+  midiRecordingArpEvents: RecordedMidiNote[];
+  midiRecordingOpenNotes: Record<string, RecordedMidiNote[]>;
+  midiRecordingLastError: string;
 
   activateAudio: () => Promise<void>;
   setMidiSupported: (supported: boolean) => void;
@@ -364,6 +379,14 @@ interface AuraState {
   clearHarmonyContext: () => void;
   clearPhrase: () => void;
   refreshHarmonySuggestions: (chord?: ChordResult | null) => void;
+  startMidiRecording: () => Promise<void>;
+  stopMidiRecording: () => void;
+  clearMidiTake: () => void;
+  captureLockedPhrase: () => void;
+  playMidiTake: (kind?: MidiTakeExportKind) => void;
+  stopMidiTakePlayback: () => void;
+  saveMidiTake: (kind?: MidiTakeExportKind) => void;
+  recordArpMidiEvent: (event: MidiCaptureEvent) => void;
 }
 
 const setTriggerState = (
@@ -463,6 +486,76 @@ const createEmptyPhraseSlots = (): PhraseSlot[] => [
   { step: 4, chord: null },
 ];
 
+const beatsFromMs = (elapsedMs: number, bpm: number) => Math.max(0, (elapsedMs / 1000) * (bpm / 60));
+
+const recordingBeatNow = (state: Pick<AuraState, "midiRecordingStartedAt" | "midiRecordingBpm">) =>
+  beatsFromMs(performance.now() - state.midiRecordingStartedAt, state.midiRecordingBpm);
+
+const takeBarsForEvents = (events: RecordedMidiNote[]) => {
+  const endBeat = Math.max(4, ...events.map((event) => event.startBeats + event.durationBeats));
+  return Math.max(1, Math.ceil(endBeat / 4));
+};
+
+const phraseLabelForTake = (phraseSlots: PhraseSlot[]) =>
+  phraseSlots.map((slot) => (slot.chord ? displayChordLabel(slot.chord).replace(/\s+/g, "") : "")).filter(Boolean);
+
+const clearMidiTakePlaybackTimers = () => {
+  midiTakePlaybackTimers.forEach((timer) => window.clearTimeout(timer));
+  midiTakePlaybackTimers = [];
+};
+
+const rateToBeats = (rate: ArpeggiatorState["rate"]) => {
+  if (rate === "1/4") return 1;
+  if (rate === "1/8") return 0.5;
+  if (rate === "1/8T") return 1 / 3;
+  if (rate === "1/16") return 0.25;
+  if (rate === "1/16T") return 1 / 6;
+  return 0.125;
+};
+
+const arpNotesForChord = (chord: ChordResult, arp: ArpeggiatorState, startBeats: number, durationBeats: number, velocity = 0.78): RecordedMidiNote[] => {
+  if (!arp.enabled) return [];
+  const stepBeats = rateToBeats(arp.rate);
+  const gate = Math.max(0.08, stepBeats * arp.gate);
+  const octaveNotes = Array.from({ length: Math.max(1, arp.octaveRange) }, (_, octave) => chord.midiNotes.map((note) => note + octave * 12)).flat();
+  const events: RecordedMidiNote[] = [];
+  const steps = Math.max(1, Math.floor(durationBeats / stepBeats));
+  for (let step = 0; step < steps; step += 1) {
+    const at = startBeats + step * stepBeats;
+    if (arp.direction === "Chord Pulse") {
+      chord.midiNotes.forEach((midiNote) => events.push({ midiNote, velocity: velocity * 0.66, startBeats: at, durationBeats: gate, channel: 0, source: "arp" }));
+      continue;
+    }
+    if (arp.direction === "Guitar Strum") {
+      chord.midiNotes.forEach((midiNote, index) => events.push({ midiNote, velocity: velocity * 0.72, startBeats: at + index * 0.05, durationBeats: Math.min(0.5, gate), channel: 0, source: "arp" }));
+      continue;
+    }
+    if (arp.direction === "Broken Dream") {
+      const first = octaveNotes[(step * 2) % octaveNotes.length];
+      events.push({ midiNote: first, velocity: velocity * 0.62, startBeats: at, durationBeats: gate, channel: 0, source: "arp" });
+      if (step % 3 === 0) {
+        const second = octaveNotes[(step * 2 + 3) % octaveNotes.length];
+        events.push({ midiNote: second, velocity: velocity * 0.56, startBeats: at + Math.min(0.16, stepBeats * 0.35), durationBeats: gate, channel: 0, source: "arp" });
+      }
+      continue;
+    }
+    const max = octaveNotes.length - 1;
+    const upDownPosition = step % Math.max(1, max * 2);
+    const index =
+      arp.direction === "Down"
+        ? max - (step % octaveNotes.length)
+        : arp.direction === "Up/Down"
+          ? upDownPosition > max
+            ? max - (upDownPosition - max)
+            : upDownPosition
+          : arp.direction === "Random"
+            ? (step * 5 + 1) % octaveNotes.length
+            : step % octaveNotes.length;
+    events.push({ midiNote: octaveNotes[index], velocity: velocity * 0.78, startBeats: at, durationBeats: gate, channel: 0, source: "arp" });
+  }
+  return events;
+};
+
 const sameChordIdentity = (a: ChordResult | null | undefined, b: ChordResult | null | undefined) =>
   Boolean(a && b && a.root === b.root && a.type === b.type && a.modifiers.length === b.modifiers.length && a.modifiers.every((modifier) => b.modifiers.includes(modifier)));
 
@@ -550,6 +643,54 @@ const computeHarmonySuggestions = (state: AuraState, chord: ChordResult | null =
         },
       })
     : [];
+
+const finalizeOpenRecordingNotes = (state: AuraState, endBeat = recordingBeatNow(state)) => {
+  const open = Object.values(state.midiRecordingOpenNotes).flat();
+  if (!open.length) return { chordEvents: state.midiRecordingChordEvents, openNotes: {} as Record<string, RecordedMidiNote[]> };
+  const closed = open.map((note) => ({
+    ...note,
+    durationBeats: Math.max(0.05, endBeat - note.startBeats),
+  }));
+  return {
+    chordEvents: [...state.midiRecordingChordEvents, ...closed],
+    openNotes: {},
+  };
+};
+
+const makeMidiTakeFromEvents = (state: AuraState, chordEvents: RecordedMidiNote[], arpEvents: RecordedMidiNote[]): MidiTake => {
+  const number = state.midiTakeCounter + 1;
+  const allEvents = [...chordEvents, ...arpEvents];
+  const bars = takeBarsForEvents(allEvents);
+  const phraseChords = phraseLabelForTake(state.phraseSlots);
+  return {
+    id: uuid(),
+    number,
+    name: `TAKE ${String(number).padStart(2, "0")}`,
+    bpm: state.midiRecordingBpm || state.bpm,
+    timeSignature: { numerator: 4, denominator: 4 },
+    bars,
+    key: `${state.keyRoot} ${state.scaleMode}`,
+    phraseChords,
+    soundName: state.layers.chord.preset,
+    arpName: state.arp.enabled ? `${state.arp.direction} ${state.arp.rate}` : "OFF",
+    voicing: voicingStageName(state.spread),
+    chordEvents,
+    arpEvents,
+    createdAt: Date.now(),
+  };
+};
+
+const buildCurrentVoicedChord = (state: AuraState, chord: ChordResult) =>
+  buildChord({
+    inputRoot: chord.root,
+    chordType: chord.type,
+    modifiers: chord.modifiers,
+    keyRoot: state.keyRoot,
+    scaleMode: state.scaleMode,
+    keyModeEnabled: false,
+    spread: state.spread,
+    motion: state.motion,
+  });
 
 export const useAuraStore = create<AuraState>((set, get) => ({
   audioReady: false,
@@ -655,12 +796,23 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   phraseStatus: "BUILDING_PHRASE",
   phraseAdvanceToken: 0,
   phraseReturnToken: 0,
+  midiRecording: false,
+  midiTakePlaying: false,
+  midiTake: null,
+  midiTakeCounter: 0,
+  midiRecordingStartedAt: 0,
+  midiRecordingBpm: initialPreset.bpm,
+  midiRecordingChordEvents: [],
+  midiRecordingArpEvents: [],
+  midiRecordingOpenNotes: {},
+  midiRecordingLastError: "",
 
   activateAudio: async () => {
     if (get().audioReady) return;
     await auraAudio.init();
     const state = get();
     auraAudio.setArpNoteListener((midi) => useAuraStore.getState().setArpVisualNote(midi));
+    auraAudio.setMidiCaptureListener((event) => useAuraStore.getState().recordArpMidiEvent(event));
     auraAudio.setBpm(state.bpm);
     auraAudio.setLeadPreset(state.layers.chord.preset);
     auraAudio.setBassPreset(state.layers.bass.preset);
@@ -867,6 +1019,19 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       sustained: false,
       startedAt: Date.now(),
     };
+    const midiRecordingOpenNotes = state.midiRecording
+      ? {
+          ...state.midiRecordingOpenNotes,
+          [triggerId]: chord.midiNotes.map<RecordedMidiNote>((midiNote) => ({
+            midiNote,
+            velocity,
+            startBeats: recordingBeatNow(state),
+            durationBeats: 0,
+            channel: 0,
+            source: "chord",
+          })),
+        }
+      : state.midiRecordingOpenNotes;
     const activeTriggers = { ...state.activeTriggers, [triggerId]: trigger };
     const activeTriggerKeys = { ...state.activeTriggerKeys, [inputKey]: triggerId };
     const phrasePatch = advancePhrase(state, chord);
@@ -887,6 +1052,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       currentChord: chord,
       previousChordNotes: chord.midiNotes,
       activeTriggerKeys,
+      midiRecordingOpenNotes,
       chordType,
       modifiers,
       harmonyHistory,
@@ -973,11 +1139,24 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     const activeTriggers = { ...state.activeTriggers };
     const activeTriggerKeys = { ...state.activeTriggerKeys };
     delete activeTriggerKeys[inputKey];
+    const openRecordingNotes = state.midiRecordingOpenNotes[triggerId] ?? [];
+    const recordingEndBeat = state.midiRecording ? recordingBeatNow(state) : 0;
+    const closedRecordingNotes = openRecordingNotes.map((note) => ({
+      ...note,
+      durationBeats: Math.max(0.05, recordingEndBeat - note.startBeats),
+    }));
+    const midiRecordingOpenNotes = { ...state.midiRecordingOpenNotes };
+    delete midiRecordingOpenNotes[triggerId];
+    const midiRecordingChordEvents = closedRecordingNotes.length
+      ? [...state.midiRecordingChordEvents, ...closedRecordingNotes]
+      : state.midiRecordingChordEvents;
 
     if (state.sustain) {
       activeTriggers[triggerId] = { ...trigger, released: true, sustained: true };
       setTriggerState(set, activeTriggers, state.activeNormalNotes, {
         activeTriggerKeys,
+        midiRecordingChordEvents,
+        midiRecordingOpenNotes,
         sustainedReleasedTriggerIds: Array.from(new Set([...state.sustainedReleasedTriggerIds, triggerId])),
         lastNoteOff: `${sourceLabel(source)} ${root} (SUSTAIN)`,
       });
@@ -987,6 +1166,8 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       scheduleTriggerCleanup(get, set, triggerId);
       setTriggerState(set, activeTriggers, state.activeNormalNotes, {
         activeTriggerKeys,
+        midiRecordingChordEvents,
+        midiRecordingOpenNotes,
         lastNoteOff: `${sourceLabel(source)} ${root}`,
       });
     }
@@ -1058,8 +1239,11 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   },
 
   allNotesOff: () => {
+    const recordingState = get();
+    const finalized = recordingState.midiRecording ? finalizeOpenRecordingNotes(recordingState) : null;
     auraAudio.allNotesOff();
     clearIdeaPlaybackTimers();
+    clearMidiTakePlaybackTimers();
     set({
       activeRoots: [],
       activeNormalNotes: [],
@@ -1071,6 +1255,8 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       soundingNoteInfo: [],
       activeArpNote: null,
       currentChord: null,
+      midiTakePlaying: false,
+      ...(finalized ? { midiRecordingChordEvents: finalized.chordEvents, midiRecordingOpenNotes: finalized.openNotes } : {}),
       displayFlash: null,
       ideaPlaying: false,
       ideaPlaybackStartedAt: 0,
@@ -1088,6 +1274,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     auraAudio.stopAllScheduledEvents();
     stopLoopTimer();
     clearIdeaPlaybackTimers();
+    clearMidiTakePlaybackTimers();
     set({
       activeRoots: [],
       activeNormalNotes: [],
@@ -1098,6 +1285,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       currentlySoundingNotes: [],
       soundingNoteInfo: [],
       activeArpNote: null,
+      midiTakePlaying: false,
       currentChord: null,
       displayFlash: null,
       looperPlaying: false,
@@ -1833,6 +2021,142 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     downloadBlob(midi, "waveforge-idea.mid");
     if (state.audioCaptureBlob) downloadBlob(state.audioCaptureBlob, "waveforge-mix.webm");
     set({ toast: "Idea exportiert: MIDI und vorhandene Audioaufnahme." });
+  },
+  startMidiRecording: async () => {
+    if (!get().audioReady) await get().activateAudio();
+    const state = get();
+    if (state.midiRecording) return;
+    clearMidiTakePlaybackTimers();
+    set({
+      midiRecording: true,
+      midiTakePlaying: false,
+      midiRecordingStartedAt: performance.now(),
+      midiRecordingBpm: state.bpm,
+      midiRecordingChordEvents: [],
+      midiRecordingArpEvents: [],
+      midiRecordingOpenNotes: {},
+      midiRecordingLastError: "",
+      audioStatus: "recording",
+      displayMode: "RECORD_VIEW",
+    });
+    get().flashDisplay("REC", [`${state.bpm} BPM  4/4`], undefined, "RECORD_VIEW");
+  },
+  stopMidiRecording: () => {
+    const state = get();
+    if (!state.midiRecording) {
+      get().stopMidiTakePlayback();
+      return;
+    }
+    const finalized = finalizeOpenRecordingNotes(state);
+    const chordEvents = finalized.chordEvents;
+    const arpEvents = state.midiRecordingArpEvents;
+    const take = makeMidiTakeFromEvents(state, chordEvents, arpEvents);
+    set({
+      midiRecording: false,
+      midiTake: take,
+      midiTakeCounter: take.number,
+      midiRecordingChordEvents: chordEvents,
+      midiRecordingArpEvents: arpEvents,
+      midiRecordingOpenNotes: {},
+      audioStatus: "ready",
+    });
+    get().flashDisplay(`TAKE ${String(take.number).padStart(2, "0")} SAVED`, [`${take.bars} BAR MIDI`], undefined, "RECORD_VIEW");
+  },
+  clearMidiTake: () => {
+    get().stopMidiTakePlayback();
+    set({
+      midiTake: null,
+      midiRecordingChordEvents: [],
+      midiRecordingArpEvents: [],
+      midiRecordingOpenNotes: {},
+      midiRecordingLastError: "",
+    });
+    get().flashDisplay("TAKE CLEAR", ["MIDI EMPTY"], undefined, "RECORD_VIEW");
+  },
+  captureLockedPhrase: () => {
+    const state = get();
+    if (state.phraseStatus !== "LOOP_FOLLOW" || state.phraseSlots.some((slot) => !slot.chord)) {
+      get().flashDisplay("CAPTURE", ["LOCK LOOP FIRST"], undefined, "RECORD_VIEW");
+      return;
+    }
+    const chords = state.phraseSlots.map((slot) => buildCurrentVoicedChord(state, slot.chord!));
+    const chordEvents = chords.flatMap((chord, index) =>
+      chord.midiNotes.map<RecordedMidiNote>((midiNote) => ({
+        midiNote,
+        velocity: 0.82,
+        startBeats: index * 4,
+        durationBeats: 4,
+        channel: 0,
+        source: "chord",
+      })),
+    );
+    const arpEvents = state.arp.enabled
+      ? chords.flatMap((chord, index) => arpNotesForChord(chord, state.arp, index * 4, 4, 0.82))
+      : [];
+    const take = makeMidiTakeFromEvents({ ...state, midiRecordingBpm: state.bpm }, chordEvents, arpEvents);
+    set({
+      midiTake: take,
+      midiTakeCounter: take.number,
+      midiRecording: false,
+      midiTakePlaying: false,
+      midiRecordingChordEvents: chordEvents,
+      midiRecordingArpEvents: arpEvents,
+      midiRecordingOpenNotes: {},
+      midiRecordingLastError: "",
+    });
+    get().flashDisplay("TAKE READY", [`TAKE ${String(take.number).padStart(2, "0")} · LOOP PRINT`], undefined, "RECORD_VIEW");
+  },
+  playMidiTake: (kind = "CHORDS") => {
+    const state = get();
+    const take = state.midiTake;
+    if (!take || state.midiRecording) return;
+    if (!state.audioReady) {
+      void get().activateAudio().then(() => get().playMidiTake(kind));
+      return;
+    }
+    get().stopMidiTakePlayback();
+    const events = kind === "ARP" && take.arpEvents.length ? take.arpEvents : take.chordEvents;
+    if (!events.length) return;
+    const secondsPerBeat = 60 / take.bpm;
+    set({ midiTakePlaying: true });
+    events.forEach((event, index) => {
+      const triggerId = `take:${take.id}:${kind}:${index}`;
+      const startMs = Math.max(0, event.startBeats * secondsPerBeat * 1000);
+      const durationMs = Math.max(20, event.durationBeats * secondsPerBeat * 1000);
+      midiTakePlaybackTimers.push(window.setTimeout(() => auraAudio.attackNormalNote(triggerId, event.midiNote, event.velocity), startMs));
+      midiTakePlaybackTimers.push(window.setTimeout(() => auraAudio.releaseNormalNoteById(triggerId, event.midiNote), startMs + durationMs));
+    });
+    const endBeat = Math.max(...events.map((event) => event.startBeats + event.durationBeats));
+    midiTakePlaybackTimers.push(window.setTimeout(() => set({ midiTakePlaying: false }), endBeat * secondsPerBeat * 1000 + 80));
+    get().flashDisplay(`PLAY TAKE ${String(take.number).padStart(2, "0")}`, [kind === "ARP" ? "ARP MIDI" : "CHORD MIDI"], undefined, "RECORD_VIEW");
+  },
+  stopMidiTakePlayback: () => {
+    clearMidiTakePlaybackTimers();
+    auraAudio.allNotesOff();
+    set({ midiTakePlaying: false });
+  },
+  saveMidiTake: (kind = "CHORDS") => {
+    const take = get().midiTake;
+    if (!take) return;
+    const exportKind = kind === "ARP" && take.arpEvents.length ? "ARP" : "CHORDS";
+    const blob = buildMidiTakeFile(take, exportKind);
+    downloadBlob(blob, midiTakeFilename(take, exportKind));
+    get().flashDisplay("SAVE MIDI", [exportKind === "ARP" ? "ARP MIDI" : "CHORD MIDI"], undefined, "RECORD_VIEW");
+  },
+  recordArpMidiEvent: (event) => {
+    const state = get();
+    if (!state.midiRecording) return;
+    const startBeats = beatsFromMs(event.startPerformanceMs - state.midiRecordingStartedAt, state.midiRecordingBpm);
+    const durationBeats = Math.max(0.03, event.durationSeconds * (state.midiRecordingBpm / 60));
+    const note: RecordedMidiNote = {
+      midiNote: event.midiNote,
+      velocity: event.velocity,
+      startBeats,
+      durationBeats,
+      channel: 0,
+      source: "arp",
+    };
+    set({ midiRecordingArpEvents: [...state.midiRecordingArpEvents, note] });
   },
   toggleStepSequencer: () => set({ stepSequencerOpen: !get().stepSequencerOpen }),
   toggleGuidedMode: () => set({ guidedMode: !get().guidedMode }),

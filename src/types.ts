@@ -264,6 +264,43 @@ export interface ActiveTrigger {
   releaseUntil?: number;
 }
 
+export type RecordedMidiSource = "chord" | "arp";
+export type MidiTakeExportKind = "CHORDS" | "ARP";
+
+export interface RecordedMidiNote {
+  midiNote: number;
+  velocity: number;
+  startBeats: number;
+  durationBeats: number;
+  channel: number;
+  source: RecordedMidiSource;
+}
+
+export interface MidiTake {
+  id: string;
+  number: number;
+  name: string;
+  bpm: number;
+  timeSignature: { numerator: 4; denominator: 4 };
+  bars: number;
+  key?: string;
+  phraseChords?: string[];
+  soundName?: string;
+  arpName?: string;
+  voicing?: VoicingStage;
+  chordEvents: RecordedMidiNote[];
+  arpEvents: RecordedMidiNote[];
+  createdAt: number;
+}
+
+export interface MidiCaptureEvent {
+  midiNote: number;
+  velocity: number;
+  startPerformanceMs: number;
+  durationSeconds: number;
+  source: "arp";
+}
+
 export interface SoundingNoteInfo {
   midi: number;
   noteName: string;
