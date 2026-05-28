@@ -6,6 +6,7 @@ import type {
   DrumPattern,
   FxState,
   LayerState,
+  MidiCaptureEvent,
   PerformanceMode,
 } from "../types";
 import { bassPresets, drumPatterns, leadPresets } from "../data/presets";
@@ -89,6 +90,7 @@ export class AuraAudioEngine {
   private pitchBendCents = 0;
   private colorValue = 0.56;
   private onArpNote?: (midi: number | null) => void;
+  private onMidiCapture?: (event: MidiCaptureEvent) => void;
   private arpClearTimer: number | null = null;
 
   async init() {
@@ -198,6 +200,22 @@ export class AuraAudioEngine {
 
   setArpNoteListener(listener: (midi: number | null) => void) {
     this.onArpNote = listener;
+  }
+
+  setMidiCaptureListener(listener: ((event: MidiCaptureEvent) => void) | null) {
+    this.onMidiCapture = listener ?? undefined;
+  }
+
+  private captureArpMidi(midiNote: number, time: number, durationSeconds: number, velocity: number) {
+    if (!this.onMidiCapture) return;
+    const delayMs = Math.max(0, time - Tone.now()) * 1000;
+    this.onMidiCapture({
+      midiNote,
+      velocity: clamp(velocity),
+      startPerformanceMs: performance.now() + delayMs,
+      durationSeconds: Math.max(0.01, durationSeconds),
+      source: "arp",
+    });
   }
 
   private publishArpNote(midi: number | null) {
@@ -614,18 +632,23 @@ export class AuraAudioEngine {
   }
 
   private triggerScheduledChord(chord: HeldChord, time: number, gate: number) {
+    const durationSeconds = Tone.Time("8n").toSeconds() * gate;
     this.chordSynth?.triggerAttackRelease(
       chord.notes.map((note) => midiToNoteName(note)),
-      Tone.Time("8n").toSeconds() * gate,
+      durationSeconds,
       time + human(this.arpState?.humanize ?? 0.01),
       chord.velocity * 0.66,
     );
+    chord.notes.forEach((note) => this.captureArpMidi(note, time, durationSeconds, chord.velocity * 0.66));
     this.publishArpNote(chord.notes[0] ?? null);
   }
 
   private triggerScheduledStrum(notes: number[], time: number, velocity: number) {
+    const durationSeconds = Tone.Time("8n").toSeconds();
     notes.forEach((note, index) => {
-      this.chordSynth?.triggerAttackRelease(midiToNoteName(note), "8n", time + index * 0.026, velocity * 0.72);
+      const start = time + index * 0.026;
+      this.chordSynth?.triggerAttackRelease(midiToNoteName(note), "8n", start, velocity * 0.72);
+      this.captureArpMidi(note, start, durationSeconds, velocity * 0.72);
       if (index === 0) this.publishArpNote(note);
     });
   }
@@ -653,25 +676,31 @@ export class AuraAudioEngine {
               : this.arpStep % notes.length;
     const velocityVariation = this.arpState?.velocityVariation ?? 0.1;
     const velocity = clamp(chord.velocity + human(velocityVariation), 0.2, 1);
+    const durationSeconds = Tone.Time(arpRateMap[this.arpState?.rate ?? "1/8"] ?? "8n").toSeconds() * (this.arpState?.gate ?? 0.72);
+    const start = time + human(this.arpState?.humanize ?? 0.01);
     this.chordSynth?.triggerAttackRelease(
       midiToNoteName(notes[index]),
-      Tone.Time(arpRateMap[this.arpState?.rate ?? "1/8"] ?? "8n").toSeconds() * (this.arpState?.gate ?? 0.72),
-      time + human(this.arpState?.humanize ?? 0.01),
+      durationSeconds,
+      start,
       velocity * 0.78,
     );
+    this.captureArpMidi(notes[index], start, durationSeconds, velocity * 0.78);
     this.publishArpNote(notes[index]);
   }
 
   private triggerCascade(time: number, chord: HeldChord, scheduled: boolean) {
     const notes = this.getArpNotes(chord);
     const direction = this.arpStep % 2 === 0 ? notes : [...notes].reverse();
+    const durationSeconds = Tone.Time("8n").toSeconds();
     direction.slice(0, 5).forEach((note, index) => {
+      const start = (scheduled ? time : Tone.now()) + index * 0.055;
       this.chordSynth?.triggerAttackRelease(
         midiToNoteName(note),
         "8n",
-        (scheduled ? time : Tone.now()) + index * 0.055,
+        start,
         chord.velocity * (0.62 - index * 0.045),
       );
+      this.captureArpMidi(note, start, durationSeconds, chord.velocity * (0.62 - index * 0.045));
       if (index === 0) this.publishArpNote(note);
     });
   }
@@ -679,9 +708,12 @@ export class AuraAudioEngine {
   private triggerDream(time: number, chord: HeldChord) {
     const notes = this.getArpNotes(chord);
     const count = 1 + (this.arpStep % 3 === 0 ? 1 : 0);
+    const durationSeconds = Tone.Time("8n").toSeconds();
     for (let i = 0; i < count; i += 1) {
       const note = notes[Math.floor(Math.random() * notes.length)];
-      this.chordSynth?.triggerAttackRelease(midiToNoteName(note), "8n", time + i * 0.075, chord.velocity * 0.62);
+      const start = time + i * 0.075;
+      this.chordSynth?.triggerAttackRelease(midiToNoteName(note), "8n", start, chord.velocity * 0.62);
+      this.captureArpMidi(note, start, durationSeconds, chord.velocity * 0.62);
       if (i === 0) this.publishArpNote(note);
     }
   }

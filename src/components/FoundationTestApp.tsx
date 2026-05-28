@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { MidiManager } from "./MidiManager";
 import { FoundationKeyboardShortcuts } from "./FoundationKeyboardShortcuts";
 import { VoicingEncoder } from "./VoicingEncoder";
+import { HarmonyControlSurface } from "./HarmonyControlSurface";
 import {
   chromaticKeyLabel,
   chordDisplayName,
@@ -13,14 +14,12 @@ import {
   noteNameForPitch,
   outputNoteText,
   readableMidiName,
-  type FoundationExtension,
 } from "../lib/foundationTheory";
 import { getSuggestionVariant } from "../lib/harmonySuggestions";
 import { NOTE_NAMES, normalizePitch, noteToPitch, VOICING_STAGES, voicingStageIndex } from "../lib/musicTheory";
 import { useAuraStore } from "../store/useAuraStore";
 import type { ArpeggiatorState, ChordModifier, ChordResult, ChordType, HarmonyPathMode, NoteName, RecordedMidiNote } from "../types";
 
-const qwerty = ["A", "W", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J"];
 const foundationSoundNames = ["TEST POLY", "WARM POLY", "TAPE KEYS", "DREAM PAD"];
 const foundationArpPatterns: Array<{ label: string; patch: Partial<ArpeggiatorState> }> = [
   { label: "OFF", patch: { enabled: false } },
@@ -33,6 +32,41 @@ const foundationArpPatterns: Array<{ label: string; patch: Partial<ArpeggiatorSt
 ];
 const pathModes: HarmonyPathMode[] = ["SAFE", "DREAM", "EXPLORE"];
 const blackPitches = [1, 3, 6, 8, 10];
+const WAVEFORGE_ARTBOARD_WIDTH = 1474;
+const WAVEFORGE_ARTBOARD_HEIGHT = 1090;
+
+const useWaveforgeArtboardScale = () => {
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const updateScale = () => {
+      frame = 0;
+      const width = window.innerWidth || WAVEFORGE_ARTBOARD_WIDTH;
+      const height = window.innerHeight || WAVEFORGE_ARTBOARD_HEIGHT;
+      const nextScale = Math.min(width / WAVEFORGE_ARTBOARD_WIDTH, height / WAVEFORGE_ARTBOARD_HEIGHT, 1);
+      setScale((current) => (Math.abs(current - nextScale) < 0.001 ? current : nextScale));
+    };
+
+    const scheduleScale = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(updateScale);
+    };
+
+    scheduleScale();
+    window.addEventListener("resize", scheduleScale, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleScale);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", scheduleScale);
+      window.visualViewport?.removeEventListener("resize", scheduleScale);
+    };
+  }, []);
+
+  return scale;
+};
 
 const chordSuffix = (type: ChordType, modifiers: ChordModifier[]) => {
   if (type === "Minor") {
@@ -87,6 +121,8 @@ const displayToneRange = (notes: number[]) => {
 };
 
 export function FoundationTestApp() {
+  const artboardScale = useWaveforgeArtboardScale();
+  const artboardStyle = useMemo(() => ({ "--wf-scale": artboardScale.toFixed(4) }) as CSSProperties, [artboardScale]);
   const audioReady = useAuraStore((state) => state.audioReady);
   const activateAudio = useAuraStore((state) => state.activateAudio);
   const requestMidiReconnect = useAuraStore((state) => state.requestMidiReconnect);
@@ -132,6 +168,11 @@ export function FoundationTestApp() {
   const midiRecording = useAuraStore((state) => state.midiRecording);
   const midiTakePlaying = useAuraStore((state) => state.midiTakePlaying);
   const midiTake = useAuraStore((state) => state.midiTake);
+  const midiTakeDisplayOpen = useAuraStore((state) => state.midiTakeDisplayOpen);
+  const midiTakePlaybackStartedAt = useAuraStore((state) => state.midiTakePlaybackStartedAt);
+  const midiTakePlaybackEndBeat = useAuraStore((state) => state.midiTakePlaybackEndBeat);
+  const midiTakePlaybackKind = useAuraStore((state) => state.midiTakePlaybackKind);
+  const midiRecordingStartedAt = useAuraStore((state) => state.midiRecordingStartedAt);
   const midiRecordingBpm = useAuraStore((state) => state.midiRecordingBpm);
   const midiRecordingChordEvents = useAuraStore((state) => state.midiRecordingChordEvents);
   const midiRecordingArpEvents = useAuraStore((state) => state.midiRecordingArpEvents);
@@ -223,6 +264,8 @@ export function FoundationTestApp() {
   const activeOutput = midiOutputs.find((device) => device.id === selectedMidiOutputId);
   const [midiServiceOpen, setMidiServiceOpen] = useState(false);
   const [midiRecorderMode, setMidiRecorderMode] = useState<"LIVE" | "LOOP">("LIVE");
+  const [printingLoop, setPrintingLoop] = useState(false);
+  const [midiRollClock, setMidiRollClock] = useState(() => performance.now());
   const voicingIndex = voicingStageIndex(spread);
   const voicingName = VOICING_STAGES[voicingIndex];
   const presetIndex = foundationSoundNames.includes(activePresetName) ? foundationSoundNames.indexOf(activePresetName) : 0;
@@ -237,17 +280,45 @@ export function FoundationTestApp() {
   }, [arp.direction, arp.enabled, arp.rate]);
   const activeArpPattern = foundationArpPatterns[activeArpIndex] ?? foundationArpPatterns[0];
   const keyIndex = Math.max(0, foundationKeys.findIndex((item) => item.id === key.id));
+  useEffect(() => {
+    if (!midiRecording && !midiTakePlaying) return undefined;
+    let frame = 0;
+    const tick = () => {
+      setMidiRollClock(performance.now());
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [midiRecording, midiTakePlaying]);
+  const recordingPlayheadBeat = midiRecording
+    ? Math.max(0, ((midiRollClock - midiRecordingStartedAt) / 1000) * (midiRecordingBpm / 60))
+    : 0;
+  const playbackPlayheadBeat = midiTakePlaying && midiTake && midiTakePlaybackStartedAt
+    ? Math.min(
+        Math.max(midiTakePlaybackEndBeat, midiTake.bars * 4),
+        Math.max(0, ((midiRollClock - midiTakePlaybackStartedAt) / 1000) * (midiTake.bpm / 60)),
+      )
+    : 0;
   const recordingOpenEvents = useMemo<RecordedMidiNote[]>(
-    () => Object.values(midiRecordingOpenNotes).flat().map((event) => ({ ...event, durationBeats: Math.max(event.durationBeats, 0.35) })),
-    [midiRecordingOpenNotes],
+    () => Object.values(midiRecordingOpenNotes).flat().map((event) => ({
+      ...event,
+      durationBeats: Math.max(event.durationBeats, recordingPlayheadBeat - event.startBeats, 0.12),
+    })),
+    [midiRecordingOpenNotes, recordingPlayheadBeat],
   );
   const midiTraceEvents = useMemo<RecordedMidiNote[]>(
     () => {
-      if (midiRecording) return [...midiRecordingChordEvents, ...midiRecordingArpEvents, ...recordingOpenEvents];
-      if (midiTake) return [...midiTake.chordEvents, ...midiTake.arpEvents];
+      if (midiRecording) {
+        return midiRecordingArpEvents.length || arp.enabled
+          ? midiRecordingArpEvents
+          : [...midiRecordingChordEvents, ...recordingOpenEvents];
+      }
+      if (midiTake) {
+        return midiTakePlaybackKind === "ARP" && midiTake.arpEvents.length ? midiTake.arpEvents : midiTake.chordEvents;
+      }
       return [];
     },
-    [midiRecording, midiRecordingChordEvents, midiRecordingArpEvents, recordingOpenEvents, midiTake],
+    [arp.enabled, midiRecording, midiRecordingChordEvents, midiRecordingArpEvents, recordingOpenEvents, midiTake, midiTakePlaybackKind],
   );
   const midiTraceBars = Math.max(
     1,
@@ -269,13 +340,12 @@ export function FoundationTestApp() {
     () => uniqueSorted(midiTraceEvents.map((event) => event.midiNote)),
     [midiTraceEvents],
   );
-  const midiRollDurationSeconds = Math.max(
-    1.2,
-    (midiTraceTotalBeats / (midiRecording ? midiRecordingBpm : midiTake?.bpm ?? midiRecordingBpm)) * 60,
-  );
+  const midiRollActive = midiRecording || midiTakePlaying;
+  const midiRollPlayheadBeat = midiRecording ? recordingPlayheadBeat : playbackPlayheadBeat;
+  const midiRollPlayheadLeft = `${Math.min(100, Math.max(0, (midiRollPlayheadBeat / midiTraceTotalBeats) * 100))}%`;
   const midiTakeLabel = midiTake ? takeNumberLabel(midiTake.number) : "NO TAKE";
   const lockedPhraseReady = phraseStatus === "LOOP_FOLLOW" && phraseSlots.every((slot) => slot.chord);
-  const displayIsRecord = Boolean(midiRecording || midiTakePlaying || displayFlash?.mode === "RECORD_VIEW");
+  const displayIsRecord = Boolean(midiRecording || midiTakePlaying || midiTakeDisplayOpen || displayFlash?.mode === "RECORD_VIEW");
   const displayIsVoicing = displayFlash?.title === "VOICING";
   const displayIsSound = displayFlash?.title === "PRESET";
   const displayIsArp = displayFlash?.title === "ARP" || displayFlash?.title === "ARP OFF";
@@ -285,12 +355,18 @@ export function FoundationTestApp() {
     displayFlash.title.startsWith("LOOP ")
   ));
   const displayHarmonyLine = [displayFlash?.title, displayFlash?.lines[0]].filter(Boolean).join(" · ");
-  const displayMain = midiRecording
+  const displayMain = printingLoop
+    ? "PRINT · LOOP"
+    : midiRecording
     ? `REC · ${midiRecorderMode}`
     : midiTakePlaying && midiTake
-      ? `PLAY ${midiTakeLabel}`
+      ? `PLAY · ${midiTakeLabel}`
       : displayIsRecord
-        ? displayFlash?.title ?? midiTakeLabel
+        ? displayFlash?.mode === "RECORD_VIEW" && !midiTakeDisplayOpen
+          ? displayFlash.title
+          : midiTake
+          ? `${midiTakeLabel} · READY`
+          : displayFlash?.title ?? "MIDI TAKE"
         : displayIsVoicing
           ? `VOICING · ${voicingName}`
           : displayIsSound
@@ -302,12 +378,18 @@ export function FoundationTestApp() {
                 : hasAudibleChord
                   ? playedText
                   : activePresetName;
-  const displaySub = midiRecording
+  const displaySub = printingLoop
+    ? "MIDI"
+    : midiRecording
     ? `${midiTraceBars} BAR · ${midiRecordingBpm} BPM`
     : midiTakePlaying && midiTake
-      ? `${midiTake.bars} BAR MIDI`
+      ? `${midiTake.bars} BAR · ${midiTakePlaybackKind === "ARP" ? "ARP MIDI" : "CHORD MIDI"}`
       : displayIsRecord
-        ? displayFlash?.lines[0] ?? (midiTake ? `${midiTake.bars} BAR MIDI` : "")
+        ? displayFlash?.mode === "RECORD_VIEW" && !midiTakeDisplayOpen
+          ? displayFlash.lines[0] ?? ""
+          : midiTake
+          ? `${midiTake.bars} BAR · MIDI`
+          : displayFlash?.lines[0] ?? ""
         : displayIsVoicing
           ? hasAudibleChord ? playedText : ""
           : displayIsSound
@@ -437,10 +519,27 @@ export function FoundationTestApp() {
     setMidiServiceOpen((open) => !open);
   };
 
+  const recorderStatus = midiRecording
+    ? "RECORDING"
+    : printingLoop
+      ? "PRINTING"
+      : midiTakePlaying
+        ? "PLAYBACK"
+        : midiTake
+          ? "TAKE READY"
+          : "READY";
+
+  const handlePrintLoop = () => {
+    setPrintingLoop(true);
+    captureLockedPhrase();
+    window.setTimeout(() => setPrintingLoop(false), 180);
+  };
+
   return (
-    <main className="foundation-app">
+    <main className="foundation-app" style={artboardStyle}>
       <MidiManager />
       <FoundationKeyboardShortcuts />
+      <div className="foundation-scale-stage">
       <section className="foundation-device" aria-label="WAVEFORGE Smart Chord Instrument">
         <div className="device-screw screw-a" />
         <div className="device-screw screw-b" />
@@ -554,7 +653,7 @@ export function FoundationTestApp() {
                 >
                   <div className="tone-rail" />
                   {showMidiTapeTrace ? (
-                    <div className={`midi-tape-trace ${midiRecording ? "recording" : ""} ${midiTakePlaying ? "playing" : ""}`}>
+                    <div className={`midi-tape-trace ${midiRecording ? "recording" : ""} ${midiTakePlaying ? "playing" : ""} ${midiRollActive ? "has-playhead" : ""}`}>
                       <div className="midi-roll-lanes" aria-hidden="true">
                         {midiTraceLaneNotes.map((midi) => {
                           const ratio = (midi - midiTracePitchRange.start) / Math.max(1, midiTracePitchRange.end - midiTracePitchRange.start);
@@ -572,7 +671,7 @@ export function FoundationTestApp() {
                           <span key={`bar-${index}`} style={{ left: `${(index / Math.max(1, midiTraceBars)) * 100}%` }} />
                         ))}
                       </div>
-                      {midiTraceEvents.slice(-96).map((event, index) => {
+                      {midiTraceEvents.map((event, index) => {
                         const pitchRatio = (event.midiNote - midiTracePitchRange.start) / Math.max(1, midiTracePitchRange.end - midiTracePitchRange.start);
                         const left = `${Math.min(99, Math.max(0, (event.startBeats / midiTraceTotalBeats) * 100))}%`;
                         const width = `${Math.max(event.source === "arp" ? 0.65 : 3.2, (event.durationBeats / midiTraceTotalBeats) * 100)}%`;
@@ -588,7 +687,7 @@ export function FoundationTestApp() {
                       })}
                       <span
                         className="midi-roll-playhead"
-                        style={{ ["--midi-roll-duration" as string]: `${midiRollDurationSeconds}s` }}
+                        style={{ left: midiRollPlayheadLeft }}
                         aria-hidden="true"
                       />
                     </div>
@@ -598,7 +697,8 @@ export function FoundationTestApp() {
                       const pitch = normalizePitch(midi);
                       const active = marker.active && outputMidiSet.has(midi);
                       const root = active && marker.root;
-                      const left = `${((midi - traceRange.start) / Math.max(1, traceRange.end - traceRange.start)) * 100}%`;
+                      const position = (midi - traceRange.start) / Math.max(1, traceRange.end - traceRange.start);
+                      const left = `${6 + position * 88}%`;
                       return (
                         <span
                           key={marker.id}
@@ -661,81 +761,41 @@ export function FoundationTestApp() {
           </section>
         </section>
 
-        <section className="foundation-grid" aria-label="Musiksteuerung">
-          <div className="foundation-panel mode-panel">
-            <h2>Mode</h2>
-            <div className="foundation-toggle-row">
-              <button className={!keyModeEnabled ? "active" : ""} type="button" onClick={() => setFoundationKeyMode(false)}>FREE</button>
-              <button className={keyModeEnabled ? "active" : ""} type="button" onClick={() => setFoundationKeyMode(true)}>GUIDED</button>
-            </div>
-            <div className="hardware-key-selector" aria-label="Tonart">
-              <span>KEY</span>
-              <div className="key-stepper">
-                <button type="button" onClick={() => stepKey(-1)} aria-label="Vorherige Tonart">‹</button>
-                <strong>{key.label}</strong>
-                <button type="button" onClick={() => stepKey(1)} aria-label="Naechste Tonart">›</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="foundation-panel chord-panel">
-            <h2>Chord</h2>
-            <div className="foundation-button-grid">
-              {foundationChordTypes.map((type) => (
-                <button key={type} className={chordType === type ? "active" : ""} type="button" onClick={() => setChordType(type as ChordType)} disabled={keyModeEnabled && !manualLock}>
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="foundation-panel extension-panel">
-            <h2>Extension</h2>
-            <div className="foundation-button-grid extensions">
-              {foundationExtensions.map((item) => (
-                <button key={item} className={extension === item ? "active" : ""} type="button" onClick={() => setChordExtension(item as FoundationExtension)} disabled={keyModeEnabled && !manualLock}>
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="foundation-panel smart-panel">
-            <div className="path-controls" aria-label="Heatmap Path">
-              <span>PATH</span>
-              <div>
-                {pathModes.map((mode) => (
-                  <button key={mode} className={harmonyPath === mode ? "active" : ""} type="button" onClick={() => setHarmonyPath(mode)} disabled={!keyModeEnabled}>
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="control-controls" aria-label="Smart Control">
-              <span>CONTROL</span>
-              <div className="foundation-toggle-row compact">
-                <button className={!manualLock ? "active" : ""} type="button" onClick={() => setManualLock(false)} disabled={!keyModeEnabled}>AUTO</button>
-                <button className={manualLock ? "active" : ""} type="button" onClick={() => setManualLock(true)} disabled={!keyModeEnabled}>MANUAL</button>
-                <button type="button" onClick={cycleHarmonyAlternative} disabled={!keyModeEnabled || !harmonySuggestions.length}>ALT</button>
-              </div>
-            </div>
-            <div className="phrase-controls" aria-label="Phrase Control">
-              <span>PHRASE</span>
-              <button type="button" onClick={newPhrase} disabled={!keyModeEnabled}>NEW</button>
-              <button type="button" onClick={clearPhrase}>CLEAR</button>
-            </div>
-          </div>
-        </section>
+        <HarmonyControlSurface
+          keyModeEnabled={keyModeEnabled}
+          setFoundationKeyMode={setFoundationKeyMode}
+          keyLabel={key.label}
+          stepKey={stepKey}
+          chordType={chordType}
+          chordTypes={foundationChordTypes}
+          setChordType={setChordType}
+          chordDisabled={keyModeEnabled && !manualLock}
+          extension={extension}
+          extensions={foundationExtensions}
+          setChordExtension={setChordExtension}
+          extensionDisabled={keyModeEnabled && !manualLock}
+          harmonyPath={harmonyPath}
+          pathModes={pathModes}
+          setHarmonyPath={setHarmonyPath}
+          pathDisabled={!keyModeEnabled}
+          manualLock={manualLock}
+          setManualLock={setManualLock}
+          cycleHarmonyAlternative={cycleHarmonyAlternative}
+          altDisabled={!keyModeEnabled || !harmonySuggestions.length}
+          newPhrase={newPhrase}
+          clearPhrase={clearPhrase}
+          newPhraseDisabled={!keyModeEnabled}
+        />
 
         <section
-          className={`midi-take-recorder-strip ${midiRecording ? "is-recording" : ""} ${midiTake ? "has-take" : ""} ${midiTakePlaying ? "is-playing" : ""}`}
+          className={`midi-take-recorder-strip ${midiRecording ? "is-recording" : ""} ${printingLoop ? "is-printing" : ""} ${midiTake ? "has-take" : ""} ${midiTakePlaying ? "is-playing" : ""}`}
           aria-label="MIDI Take Recorder"
         >
           <div className="recorder-title-block">
             <span className="capture-led" aria-hidden="true" />
             <div>
               <strong>MIDI TAKE RECORDER</strong>
-              <small>{midiRecording ? "LIVE REC" : midiTakePlaying ? "PLAYBACK" : midiTake ? "TAKE READY" : "STANDBY"}</small>
+              <small>{recorderStatus}</small>
             </div>
           </div>
 
@@ -750,11 +810,11 @@ export function FoundationTestApp() {
 
           <div className="recorder-transport" aria-label="MIDI Transport">
             {midiRecorderMode === "LOOP" ? (
-              <button type="button" className="print-button" onClick={captureLockedPhrase} disabled={!lockedPhraseReady || midiRecording}>
+              <button type="button" className="print-button" onClick={handlePrintLoop} disabled={!lockedPhraseReady || midiRecording || midiTakePlaying || printingLoop}>
                 PRINT
               </button>
             ) : (
-              <button type="button" className="rec-button" onClick={() => void startMidiRecording()} disabled={midiRecording}>
+              <button type="button" className="rec-button" onClick={() => void startMidiRecording()} disabled={midiRecording || midiTakePlaying}>
                 REC
               </button>
             )}
@@ -768,7 +828,7 @@ export function FoundationTestApp() {
             <button
               type="button"
               onClick={() => playMidiTake(midiTake?.arpEvents.length ? "ARP" : "CHORDS")}
-              disabled={!midiTake || midiRecording}
+              disabled={!midiTake || midiRecording || midiTakePlaying}
             >
               PLAY
             </button>
@@ -778,20 +838,13 @@ export function FoundationTestApp() {
             {midiTake ? (
               <div className="midi-take-cartridge" aria-label={`${midiTakeLabel} MIDI`}>
                 <span>{midiTakeLabel}</span>
-                <small>{midiTake.bars} BAR .MID</small>
+                <small>{midiTake.bars} BAR · MIDI</small>
               </div>
             ) : (
               <span className="midi-take-empty">NO TAKE</span>
             )}
             <div className="take-actions">
-              {midiTake?.arpEvents.length ? (
-                <>
-                  <button type="button" onClick={() => saveMidiTake("CHORDS")} disabled={!midiTake || midiRecording}>CHORD</button>
-                  <button type="button" onClick={() => saveMidiTake("ARP")} disabled={!midiTake || midiRecording}>ARP</button>
-                </>
-              ) : (
-                <button type="button" onClick={() => saveMidiTake("CHORDS")} disabled={!midiTake || midiRecording}>SAVE MIDI</button>
-              )}
+              <button type="button" onClick={() => saveMidiTake(midiTake?.arpEvents.length ? "ARP" : "CHORDS")} disabled={!midiTake || midiRecording || midiTakePlaying}>SAVE MIDI</button>
               <button type="button" onClick={clearMidiTake} disabled={!midiTake || midiRecording}>CLEAR TAKE</button>
             </div>
           </div>
@@ -851,7 +904,7 @@ export function FoundationTestApp() {
           </div>
 
           <section className="foundation-keyboard" aria-label="Chromatisches Test-Keyboard">
-            {NOTE_NAMES.map((note, index) => {
+            {NOTE_NAMES.map((note) => {
               const pitch = noteToPitch(note);
               const suggestion = keyModeEnabled ? suggestionByPitch.get(pitch) : undefined;
               const visibleSuggestion = suggestion && guidanceRanks.has(suggestion.id) ? suggestion : undefined;
@@ -893,13 +946,13 @@ export function FoundationTestApp() {
                   aria-label={`Akkord ${note}`}
                 >
                   <strong>{chromaticKeyLabel(note as NoteName, key.preferFlats)}</strong>
-                  <small>{qwerty[index]}</small>
                 </button>
               );
             })}
           </section>
         </section>
       </section>
+      </div>
     </main>
   );
 }

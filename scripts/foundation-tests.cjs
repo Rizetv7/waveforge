@@ -391,6 +391,9 @@ const testMidiTakeExport = async () => {
   assert.equal(chordInfo.actualTracks, 2, "Chord MIDI export writes two MTrk chunks");
   assert.equal(chordInfo.ticksPerQuarter, 480, "Chord MIDI export uses 480 PPQ");
   assert(chordInfo.byteLength > 80, "Chord MIDI export is not empty");
+  const chordBytes = new Uint8Array(await chordBlob.arrayBuffer());
+  assert(countBytes(chordBytes, [0x80]) >= take.chordEvents.length, "Chord MIDI export contains note-off events for chord notes");
+  assert.equal(midiExport.midiTakeFilename(take, "CHORDS"), "WAVEFORGE_TAKE01_90BPM_CHORD.mid", "Chord MIDI take filename is Logic-friendly");
 
   const arpBlob = midiExport.buildMidiTakeFile(take, "ARP");
   const arpInfo = await midiExport.inspectMidiFile(arpBlob);
@@ -398,7 +401,8 @@ const testMidiTakeExport = async () => {
   assert.equal(arpInfo.declaredTracks, 2, "ARP MIDI export uses two tracks");
   const arpBytes = new Uint8Array(await arpBlob.arrayBuffer());
   assert(countBytes(arpBytes, [0x90]) >= take.arpEvents.length, "ARP MIDI export contains note-on events for arp notes");
-  assert(midiExport.midiTakeFilename(take, "ARP").endsWith(".mid"), "MIDI take filename has .mid extension");
+  assert(countBytes(arpBytes, [0x80]) >= take.arpEvents.length, "ARP MIDI export contains note-off events for arp notes");
+  assert.equal(midiExport.midiTakeFilename(take, "ARP"), "WAVEFORGE_TAKE01_90BPM_ARP-DREAMCASCADE.mid", "ARP MIDI take filename is Logic-friendly");
 };
 
 testMidiTakeExport()

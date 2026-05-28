@@ -273,6 +273,10 @@ interface AuraState {
   midiTakePlaying: boolean;
   midiTake: MidiTake | null;
   midiTakeCounter: number;
+  midiTakeDisplayOpen: boolean;
+  midiTakePlaybackStartedAt: number;
+  midiTakePlaybackEndBeat: number;
+  midiTakePlaybackKind: MidiTakeExportKind;
   midiRecordingStartedAt: number;
   midiRecordingBpm: number;
   midiRecordingChordEvents: RecordedMidiNote[];
@@ -800,6 +804,10 @@ export const useAuraStore = create<AuraState>((set, get) => ({
   midiTakePlaying: false,
   midiTake: null,
   midiTakeCounter: 0,
+  midiTakeDisplayOpen: false,
+  midiTakePlaybackStartedAt: 0,
+  midiTakePlaybackEndBeat: 0,
+  midiTakePlaybackKind: "CHORDS",
   midiRecordingStartedAt: 0,
   midiRecordingBpm: initialPreset.bpm,
   midiRecordingChordEvents: [],
@@ -1256,6 +1264,8 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       activeArpNote: null,
       currentChord: null,
       midiTakePlaying: false,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
       ...(finalized ? { midiRecordingChordEvents: finalized.chordEvents, midiRecordingOpenNotes: finalized.openNotes } : {}),
       displayFlash: null,
       ideaPlaying: false,
@@ -1286,6 +1296,8 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       soundingNoteInfo: [],
       activeArpNote: null,
       midiTakePlaying: false,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
       currentChord: null,
       displayFlash: null,
       looperPlaying: false,
@@ -2026,10 +2038,14 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     if (!get().audioReady) await get().activateAudio();
     const state = get();
     if (state.midiRecording) return;
-    clearMidiTakePlaybackTimers();
+    get().stopMidiTakePlayback();
     set({
       midiRecording: true,
       midiTakePlaying: false,
+      midiTakeDisplayOpen: true,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
+      midiTakePlaybackKind: "CHORDS",
       midiRecordingStartedAt: performance.now(),
       midiRecordingBpm: state.bpm,
       midiRecordingChordEvents: [],
@@ -2050,11 +2066,27 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     const finalized = finalizeOpenRecordingNotes(state);
     const chordEvents = finalized.chordEvents;
     const arpEvents = state.midiRecordingArpEvents;
+    if (!chordEvents.length && !arpEvents.length) {
+      set({
+        midiRecording: false,
+        midiTakeDisplayOpen: false,
+        midiRecordingChordEvents: [],
+        midiRecordingArpEvents: [],
+        midiRecordingOpenNotes: {},
+        audioStatus: "ready",
+      });
+      get().flashDisplay("NO TAKE", ["NO MIDI NOTES"], undefined, "RECORD_VIEW");
+      return;
+    }
     const take = makeMidiTakeFromEvents(state, chordEvents, arpEvents);
     set({
       midiRecording: false,
       midiTake: take,
       midiTakeCounter: take.number,
+      midiTakeDisplayOpen: true,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
+      midiTakePlaybackKind: arpEvents.length ? "ARP" : "CHORDS",
       midiRecordingChordEvents: chordEvents,
       midiRecordingArpEvents: arpEvents,
       midiRecordingOpenNotes: {},
@@ -2066,6 +2098,10 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     get().stopMidiTakePlayback();
     set({
       midiTake: null,
+      midiTakeDisplayOpen: false,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
+      midiTakePlaybackKind: "CHORDS",
       midiRecordingChordEvents: [],
       midiRecordingArpEvents: [],
       midiRecordingOpenNotes: {},
@@ -2099,6 +2135,10 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       midiTakeCounter: take.number,
       midiRecording: false,
       midiTakePlaying: false,
+      midiTakeDisplayOpen: true,
+      midiTakePlaybackStartedAt: 0,
+      midiTakePlaybackEndBeat: 0,
+      midiTakePlaybackKind: arpEvents.length ? "ARP" : "CHORDS",
       midiRecordingChordEvents: chordEvents,
       midiRecordingArpEvents: arpEvents,
       midiRecordingOpenNotes: {},
@@ -2118,7 +2158,15 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     const events = kind === "ARP" && take.arpEvents.length ? take.arpEvents : take.chordEvents;
     if (!events.length) return;
     const secondsPerBeat = 60 / take.bpm;
-    set({ midiTakePlaying: true });
+    const startedAt = performance.now();
+    const endBeat = Math.max(...events.map((event) => event.startBeats + event.durationBeats));
+    set({
+      midiTakePlaying: true,
+      midiTakeDisplayOpen: true,
+      midiTakePlaybackStartedAt: startedAt,
+      midiTakePlaybackEndBeat: endBeat,
+      midiTakePlaybackKind: kind === "ARP" && take.arpEvents.length ? "ARP" : "CHORDS",
+    });
     events.forEach((event, index) => {
       const triggerId = `take:${take.id}:${kind}:${index}`;
       const startMs = Math.max(0, event.startBeats * secondsPerBeat * 1000);
@@ -2126,14 +2174,16 @@ export const useAuraStore = create<AuraState>((set, get) => ({
       midiTakePlaybackTimers.push(window.setTimeout(() => auraAudio.attackNormalNote(triggerId, event.midiNote, event.velocity), startMs));
       midiTakePlaybackTimers.push(window.setTimeout(() => auraAudio.releaseNormalNoteById(triggerId, event.midiNote), startMs + durationMs));
     });
-    const endBeat = Math.max(...events.map((event) => event.startBeats + event.durationBeats));
-    midiTakePlaybackTimers.push(window.setTimeout(() => set({ midiTakePlaying: false }), endBeat * secondsPerBeat * 1000 + 80));
+    midiTakePlaybackTimers.push(window.setTimeout(() => {
+      auraAudio.allNotesOff();
+      set({ midiTakePlaying: false, midiTakePlaybackStartedAt: 0, midiTakePlaybackEndBeat: 0 });
+    }, endBeat * secondsPerBeat * 1000 + 80));
     get().flashDisplay(`PLAY TAKE ${String(take.number).padStart(2, "0")}`, [kind === "ARP" ? "ARP MIDI" : "CHORD MIDI"], undefined, "RECORD_VIEW");
   },
   stopMidiTakePlayback: () => {
     clearMidiTakePlaybackTimers();
     auraAudio.allNotesOff();
-    set({ midiTakePlaying: false });
+    set({ midiTakePlaying: false, midiTakePlaybackStartedAt: 0, midiTakePlaybackEndBeat: 0 });
   },
   saveMidiTake: (kind = "CHORDS") => {
     const take = get().midiTake;
@@ -2141,6 +2191,7 @@ export const useAuraStore = create<AuraState>((set, get) => ({
     const exportKind = kind === "ARP" && take.arpEvents.length ? "ARP" : "CHORDS";
     const blob = buildMidiTakeFile(take, exportKind);
     downloadBlob(blob, midiTakeFilename(take, exportKind));
+    set({ midiTakeDisplayOpen: false, midiTakePlaybackKind: exportKind });
     get().flashDisplay("SAVE MIDI", [exportKind === "ARP" ? "ARP MIDI" : "CHORD MIDI"], undefined, "RECORD_VIEW");
   },
   recordArpMidiEvent: (event) => {

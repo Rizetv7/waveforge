@@ -1,4 +1,4 @@
-import type { DrumPattern, LoopLayer } from "../types";
+import type { DrumPattern, LoopLayer, MidiTake, MidiTakeExportKind, RecordedMidiNote } from "../types";
 
 const ticksPerQuarter = 480;
 
@@ -39,6 +39,23 @@ const headerChunk = () => [
   ticksPerQuarter & 0xff,
 ];
 
+const headerChunkFor = (trackCount: number) => [
+  0x4d,
+  0x54,
+  0x68,
+  0x64,
+  0x00,
+  0x00,
+  0x00,
+  0x06,
+  0x00,
+  0x01,
+  (trackCount >> 8) & 0xff,
+  trackCount & 0xff,
+  (ticksPerQuarter >> 8) & 0xff,
+  ticksPerQuarter & 0xff,
+];
+
 const makeTrack = (events: number[]) => {
   const data = [...events, 0x00, 0xff, 0x2f, 0x00];
   const length = data.length;
@@ -59,6 +76,14 @@ const noteEvents = (timeTicks: number, note: number, velocity: number, durationT
   { tick: timeTicks, data: [0x90 + channel, note, velocity] },
   { tick: timeTicks + durationTicks, data: [0x80 + channel, note, 0] },
 ];
+
+const noteTakeEvents = (note: RecordedMidiNote) => {
+  const tick = Math.max(0, Math.round(note.startBeats * ticksPerQuarter));
+  const duration = Math.max(1, Math.round(note.durationBeats * ticksPerQuarter));
+  const velocity = Math.max(1, Math.min(127, Math.round(note.velocity * 127)));
+  const channel = Math.max(0, Math.min(15, note.channel));
+  return noteEvents(tick, Math.max(0, Math.min(127, Math.round(note.midiNote))), velocity, duration, channel);
+};
 
 const flattenTimedEvents = (items: { tick: number; data: number[] }[]) => {
   const sorted = items.sort((a, b) => a.tick - b.tick || a.data[0] - b.data[0]);
@@ -139,6 +164,75 @@ export const buildMidiFile = ({
   return new Blob([new Uint8Array([...headerChunk(), ...metaTrack, ...chordTrack, ...bassTrack])], {
     type: "audio/midi",
   });
+};
+
+export const buildMidiTakeFile = (take: MidiTake, kind: MidiTakeExportKind = "CHORDS") => {
+  const microsPerQuarter = Math.round(60_000_000 / take.bpm);
+  const sourceEvents = kind === "ARP" ? take.arpEvents : take.chordEvents;
+  const endTick = Math.max(
+    take.bars * 4 * ticksPerQuarter,
+    ...sourceEvents.map((event) => Math.round((event.startBeats + event.durationBeats) * ticksPerQuarter)),
+  );
+  const metaTrack = makeTrack([
+    ...textMeta(0x03, `WAVEFORGE ${kind}`),
+    ...textMeta(0x01, take.name),
+    0x00,
+    0xff,
+    0x51,
+    0x03,
+    (microsPerQuarter >> 16) & 0xff,
+    (microsPerQuarter >> 8) & 0xff,
+    microsPerQuarter & 0xff,
+    0x00,
+    0xff,
+    0x58,
+    0x04,
+    take.timeSignature.numerator,
+    0x02,
+    0x18,
+    0x08,
+  ]);
+
+  const trackName = kind === "ARP" ? "WAVEFORGE ARP MIDI" : "WAVEFORGE CHORD MIDI";
+  const noteTrackEvents = [
+    ...sourceEvents.flatMap(noteTakeEvents),
+    { tick: endTick, data: [0xb0, 0x7b, 0x00] },
+  ];
+  const noteTrack = makeTrack([...textMeta(0x03, trackName), ...flattenTimedEvents(noteTrackEvents)]);
+
+  return new Blob([new Uint8Array([...headerChunkFor(2), ...metaTrack, ...noteTrack])], {
+    type: "audio/midi",
+  });
+};
+
+export const midiTakeFilename = (take: MidiTake, kind: MidiTakeExportKind = "CHORDS") => {
+  const takeNumber = String(take.number).padStart(2, "0");
+  const kindSuffix = kind === "ARP"
+    ? `_ARP-${take.arpName ?? "Pattern"}`
+    : take.arpEvents.length
+      ? "_CHORD"
+      : "";
+  const safe = `TAKE${takeNumber}_${take.bpm}BPM${kindSuffix}`
+    .replace(/\s+/g, "")
+    .replace(/[^a-zA-Z0-9#_\-.]/g, "");
+  return `WAVEFORGE_${safe}.mid`;
+};
+
+export const inspectMidiFile = async (blob: Blob) => {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const text = (start: number, length: number) => String.fromCharCode(...bytes.slice(start, start + length));
+  const trackCount = (bytes[10] << 8) | bytes[11];
+  let tracks = 0;
+  for (let index = 14; index < bytes.length - 8; index += 1) {
+    if (text(index, 4) === "MTrk") tracks += 1;
+  }
+  return {
+    validHeader: text(0, 4) === "MThd",
+    ticksPerQuarter: (bytes[12] << 8) | bytes[13],
+    declaredTracks: trackCount,
+    actualTracks: tracks,
+    byteLength: bytes.length,
+  };
 };
 
 export const downloadBlob = (blob: Blob, filename: string) => {

@@ -9891,382 +9891,2131 @@ body {
     0 5px 10px rgba(0, 0, 0, 0.3);
 }
 
-@media (min-width: 1180px) {
-  .foundation-device {
-    width: min(1460px, calc(100vw - 34px));
-    max-width: 1460px;
-    --wf-module-width: min(100%, 1300px);
+/* Fixed master artboard.
+   The instrument has one internal geometry and only this outer stage scales. */
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.foundation-app {
+  position: relative;
+  width: 100vw;
+  height: 100svh;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.foundation-scale-stage {
+  width: 1474px;
+  height: 1034px;
+  left: 50%;
+  top: 50%;
+  flex: none;
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--wf-scale, 1));
+  transform-origin: center center;
+  will-change: transform;
+  contain: layout paint style;
+}
+
+.foundation-device {
+  width: 1406px;
+  min-width: 1406px;
+  max-width: 1406px;
+  height: 1000px;
+  min-height: 1000px;
+  max-height: 1000px;
+  --wf-module-width: 1300px;
+  margin: 17px auto 0;
+  padding: 32px;
+}
+
+.foundation-cockpit,
+.foundation-grid,
+.midi-take-recorder-strip,
+.keyboard-stage {
+  width: 1300px;
+  min-width: 1300px;
+  max-width: 1300px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.foundation-header {
+  display: flex;
+  grid-template-columns: none;
+  justify-content: space-between;
+  align-items: center;
+  justify-items: normal;
+  gap: 18px;
+}
+
+.brand-lockup {
+  justify-content: flex-start;
+}
+
+.foundation-header h1 {
+  font-size: 1.62rem;
+}
+
+.status-cluster {
+  justify-self: end;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
+  margin-right: 42px;
+}
+
+.status-cluster .status-text {
+  max-width: 74px;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+}
+
+.foundation-app .status-cluster button.utility-button,
+.foundation-app .status-cluster button.panic-button {
+  width: 82px;
+  min-width: 82px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 15px;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+}
+
+.foundation-cockpit {
+  display: grid;
+  grid-template-columns: 280px minmax(560px, 1fr) 280px;
+  grid-template-areas: "voicing display selectors";
+  gap: 22px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+.foundation-cockpit .foundation-expression-row {
+  display: contents;
+  grid-template-columns: none;
+  gap: 0;
+  overflow: visible;
+}
+
+.foundation-cockpit .voicing-encoder {
+  grid-area: voicing;
+  width: 100%;
+  min-height: 260px;
+  align-self: stretch;
+}
+
+.foundation-cockpit .display-bay {
+  grid-area: display;
+  width: 100%;
+  height: 262px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.foundation-cockpit .foundation-display {
+  width: 694px;
+  height: 260px;
+  min-width: 694px;
+  max-width: 694px;
+  min-height: 260px;
+  max-height: 260px;
+  overflow: hidden;
+}
+
+.foundation-display .display-content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 260px;
+  grid-template-rows: 78px 62px 22px 52px;
+  padding: 24px 58px 18px;
+  overflow: hidden;
+}
+
+.foundation-cockpit .foundation-display .display-main,
+.foundation-display .display-main {
+  font-size: 1.85rem;
+}
+
+.foundation-cockpit .selector-bank {
+  grid-area: selectors;
+  min-height: 260px;
+  align-self: stretch;
+  align-content: stretch;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, minmax(54px, 1fr));
+}
+
+.foundation-cockpit .selector-bank .sound-selector,
+.foundation-cockpit .selector-bank .arp-selector {
+  grid-template-columns: 62px minmax(0, 1fr) 42px;
+  grid-template-rows: 36px 12px;
+  gap: 5px 9px;
+  padding: 6px 4px;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper,
+.foundation-cockpit .arp-selector .sound-stepper {
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 7px;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper strong {
+  min-height: 34px;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+}
+
+.foundation-grid {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.78fr) minmax(420px, 1.52fr) minmax(360px, 1.34fr) minmax(210px, 0.78fr);
+  grid-template-rows: auto;
+  grid-template-areas: "mode chord extension smart";
+  gap: 22px;
+  height: 178px;
+  min-height: 148px;
+  padding: 16px 20px 17px;
+}
+
+.foundation-panel.mode-panel { grid-area: mode; }
+.foundation-panel.chord-panel { grid-area: chord; }
+.foundation-panel.extension-panel { grid-area: extension; }
+.foundation-panel.smart-panel { grid-area: smart; }
+
+.foundation-grid .foundation-panel {
+  padding: 5px 13px;
+}
+
+.foundation-grid .foundation-panel:first-child {
+  padding-left: 4px;
+}
+
+.foundation-grid .foundation-panel:last-child {
+  padding-right: 4px;
+}
+
+.foundation-grid .foundation-panel + .foundation-panel {
+  border-left: 1px solid rgba(239, 210, 165, 0.07) !important;
+  border-top: 0 !important;
+}
+
+.foundation-grid h2,
+.foundation-grid .path-controls > span,
+.foundation-grid .control-controls > span,
+.foundation-grid .phrase-controls > span,
+.hardware-key-selector > span {
+  font-size: 0.612rem;
+}
+
+.foundation-button-grid {
+  gap: 8px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid,
+.foundation-panel.extension-panel .foundation-button-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(1) { order: 1; }
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(3) { order: 2; }
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(4) { order: 3; }
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(5) { order: 4; }
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(2) { order: 5; }
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(6) { order: 6; }
+
+.foundation-panel.smart-panel {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 9px;
+  border-top: 0 !important;
+  padding-top: 5px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button,
+.foundation-panel.extension-panel .foundation-button-grid button {
+  font-size: 0.63rem;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button:nth-child(n + 5),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(2),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(6) {
+  font-size: 0.54rem;
+}
+
+.smart-panel .path-controls,
+.smart-panel .control-controls {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.smart-panel .phrase-controls {
+  display: grid;
+  grid-template-columns: 58px repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px;
+}
+
+.smart-panel .path-controls > span,
+.smart-panel .control-controls > span,
+.smart-panel .phrase-controls > span {
+  grid-column: auto;
+  margin: 0;
+  min-width: 0;
+  font-size: 0.49rem;
+  letter-spacing: 0.2em;
+}
+
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact {
+  margin: 0;
+}
+
+.path-controls button,
+.control-controls button,
+.smart-panel .phrase-controls button {
+  min-height: 28px;
+  padding-inline: 7px;
+  font-size: 0.43rem;
+  letter-spacing: 0.07em;
+}
+
+.midi-take-recorder-strip {
+  grid-template-columns: minmax(145px, 0.62fr) minmax(128px, 0.54fr) minmax(230px, 0.95fr) minmax(382px, 1.5fr);
+  height: 68px;
+}
+
+.midi-take-recorder-strip .recorder-transport,
+.recorder-take-section {
+  grid-column: auto;
+}
+
+.recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.recorder-take-section {
+  width: auto;
+}
+
+.recorder-take-section {
+  grid-template-columns: minmax(116px, 0.74fr) minmax(0, 1.26fr);
+}
+
+.keyboard-stage {
+  --wf-keyboard-min: 100%;
+  width: 1300px;
+  min-width: 1300px;
+  max-width: 1300px;
+  height: 313px;
+  min-height: 313px;
+  max-height: 313px;
+  gap: 0;
+  margin: 18px 20px 0;
+  overflow: hidden;
+  padding: 10px 14px 20px;
+}
+
+.guidance-rail,
+.keyboard-stage .foundation-keyboard {
+  width: 100%;
+  max-width: 100%;
+  min-width: var(--wf-keyboard-min);
+  grid-template-columns: none !important;
+}
+
+.guidance-rail {
+  height: 42px;
+  max-height: 42px;
+}
+
+.keyboard-stage .foundation-keyboard {
+  height: 236px;
+}
+
+/* MIDI Take Recorder polish: same strip position, cleaner physical controls. */
+.midi-take-recorder-strip {
+  align-items: center;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 32%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #cbc1ac 0%, #b2a68e 45%, #968a72 100%);
+  border: 1px solid rgba(75, 66, 52, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 220, 0.42),
+    inset 0 -5px 12px rgba(55, 47, 37, 0.24),
+    0 10px 20px rgba(33, 27, 20, 0.18);
+}
+
+.recorder-title-block {
+  min-width: 0;
+}
+
+.recorder-title-block .capture-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8b5a36;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 237, 202, 0.3),
+    0 0 0 1px rgba(64, 50, 38, 0.45);
+}
+
+.midi-take-recorder-strip.is-recording .capture-led,
+.midi-take-recorder-strip.is-printing .capture-led {
+  background: #d96b4b;
+  box-shadow:
+    0 0 9px rgba(217, 107, 75, 0.52),
+    inset 0 1px 1px rgba(255, 237, 202, 0.44);
+}
+
+.midi-take-recorder-strip.is-playing .capture-led,
+.midi-take-recorder-strip.has-take:not(.is-recording):not(.is-printing) .capture-led {
+  background: #d89645;
+  box-shadow:
+    0 0 7px rgba(216, 150, 69, 0.42),
+    inset 0 1px 1px rgba(255, 237, 202, 0.38);
+}
+
+.recorder-title-block strong,
+.recorder-title-block small {
+  color: #5a5147;
+  text-shadow: 0 1px 0 rgba(245, 231, 202, 0.34);
+}
+
+.recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.recorder-take-section {
+  background: rgba(38, 31, 24, 0.12);
+  border: 1px solid rgba(60, 50, 39, 0.22);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 245, 221, 0.18),
+    inset 0 -2px 4px rgba(54, 45, 35, 0.16);
+}
+
+.recorder-mode-switch button,
+.midi-take-recorder-strip .recorder-transport button,
+.midi-take-recorder-strip .take-actions button {
+  border: 1px solid rgba(8, 7, 6, 0.74);
+  background:
+    linear-gradient(180deg, rgba(255, 238, 204, 0.15), rgba(255, 238, 204, 0.03) 34%, rgba(0, 0, 0, 0.42)),
+    #1b1612;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 239, 206, 0.16),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.56),
+    0 3px 0 #050403,
+    0 7px 11px rgba(28, 21, 15, 0.24);
+  color: #efe0bf;
+  transform: translateY(0);
+}
+
+.recorder-mode-switch button.active,
+.midi-take-recorder-strip .recorder-transport button.active,
+.midi-take-recorder-strip .take-actions button.active {
+  color: #f2c16c;
+}
+
+.midi-take-recorder-strip button:active:not(:disabled),
+.midi-take-recorder-strip button.active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 239, 206, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.58),
+    0 1px 0 #050403,
+    0 4px 7px rgba(28, 21, 15, 0.18);
+}
+
+.midi-take-recorder-strip button:disabled {
+  color: rgba(239, 224, 191, 0.38);
+  filter: saturate(0.7);
+  opacity: 0.58;
+}
+
+.midi-take-recorder-strip .rec-button::before,
+.midi-take-recorder-strip .print-button::before {
+  top: 8px;
+  background: #7a352f;
+}
+
+.midi-take-recorder-strip.is-recording .rec-button::before,
+.midi-take-recorder-strip.is-printing .print-button::before {
+  background: #da6655;
+  box-shadow:
+    0 0 8px rgba(218, 102, 85, 0.58),
+    inset 0 1px 0 rgba(255, 228, 206, 0.38);
+}
+
+.midi-take-recorder-strip .midi-take-cartridge,
+.midi-take-recorder-strip .midi-take-empty {
+  background:
+    linear-gradient(180deg, rgba(255, 223, 174, 0.08), rgba(0, 0, 0, 0.28)),
+    repeating-linear-gradient(90deg, rgba(255, 232, 188, 0.026) 0 1px, transparent 1px 7px),
+    #19120e;
+  border: 1px solid rgba(15, 11, 8, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 234, 195, 0.1),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.38),
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.midi-take-recorder-strip .midi-take-cartridge span,
+.midi-take-recorder-strip .midi-take-cartridge small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-take-recorder-strip .take-actions button:last-child {
+  font-size: 0.45rem;
+  opacity: 0.82;
+}
+
+.midi-tape-trace {
+  overflow: hidden;
+}
+
+.midi-roll-playhead {
+  transform: none;
+  transition: left 42ms linear, opacity 90ms ease;
+}
+
+.midi-tape-trace.recording .midi-roll-playhead,
+.midi-tape-trace.playing .midi-roll-playhead,
+.midi-tape-trace.has-playhead .midi-roll-playhead {
+  opacity: 1;
+  animation: none;
+}
+
+/* Premium hardware surface pass: fixed-canvas visual polish only. */
+.foundation-cockpit .voicing-encoder {
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  height: 260px;
+  min-height: 260px;
+  max-height: 260px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 34px 178px 28px;
+  place-items: center;
+  padding: 26px 30px 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 230, 188, 0.075);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 220, 160, 0.035), transparent 44%),
+    linear-gradient(180deg, rgba(255, 240, 204, 0.026), rgba(0, 0, 0, 0.18)),
+    repeating-linear-gradient(90deg, rgba(255, 236, 198, 0.012) 0 1px, transparent 1px 10px),
+    #15110e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 216, 0.055),
+    inset 0 -16px 22px rgba(0, 0, 0, 0.38),
+    0 8px 0 rgba(63, 51, 39, 0.55),
+    0 16px 24px rgba(0, 0, 0, 0.2);
+}
+
+.foundation-cockpit .voicing-title {
+  align-self: end;
+  color: #c9b99b;
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
+  transform: none;
+}
+
+.foundation-cockpit .voicing-dial {
+  width: 164px;
+  height: 164px;
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+}
+
+.foundation-cockpit .voicing-dial:focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 1px rgba(240, 181, 101, 0.24),
+    0 0 0 5px rgba(240, 181, 101, 0.035);
+}
+
+.foundation-cockpit .voicing-tick-ring {
+  inset: -23px;
+}
+
+.foundation-cockpit .voicing-tick-ring span {
+  width: 2px;
+  height: 10px;
+  background: rgba(201, 155, 99, 0.26);
+}
+
+.foundation-cockpit .voicing-tick-ring span.lit {
+  background: #d98a4b;
+  box-shadow: 0 0 6px rgba(217, 138, 75, 0.26);
+}
+
+.foundation-cockpit .voicing-cap {
+  inset: 17px;
+  background:
+    radial-gradient(circle at 39% 32%, rgba(255, 239, 204, 0.12), transparent 17%),
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 4px),
+    linear-gradient(145deg, #25211d, #0b0908 70%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 244, 220, 0.08),
+    inset 0 -13px 20px rgba(0, 0, 0, 0.66),
+    0 5px 0 #050403,
+    0 13px 18px rgba(0, 0, 0, 0.32);
+}
+
+.foundation-cockpit .voicing-cap span {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: #f19855;
+  box-shadow: 0 0 7px rgba(241, 152, 85, 0.34);
+}
+
+.foundation-cockpit .voicing-index {
+  display: none;
+}
+
+.foundation-cockpit .voicing-stage-name {
+  align-self: start;
+  min-height: 0;
+  color: rgba(201, 185, 155, 0.58);
+  font-size: 0.52rem;
+  letter-spacing: 0.22em;
+  transform: translateY(-2px);
+}
+
+.foundation-grid {
+  grid-template-columns: 250px 340px 340px 328px;
+  gap: 14px;
+  height: 184px;
+  padding: 17px 18px 18px;
+  border-radius: 23px;
+  background:
+    linear-gradient(180deg, rgba(255, 236, 196, 0.026), rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(90deg, rgba(255, 236, 198, 0.011) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, #181310, #100d0b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.055),
+    inset 0 -18px 30px rgba(0, 0, 0, 0.35),
+    0 5px 0 rgba(42, 31, 22, 0.52),
+    0 13px 21px rgba(0, 0, 0, 0.18);
+}
+
+.foundation-grid .foundation-panel {
+  min-width: 0;
+  height: 100%;
+  padding: 0 13px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.foundation-grid .foundation-panel + .foundation-panel {
+  border-left: 1px solid rgba(201, 185, 155, 0.13) !important;
+}
+
+.foundation-grid h2,
+.hardware-key-selector > span,
+.foundation-grid .path-controls > span,
+.foundation-grid .control-controls > span,
+.foundation-grid .phrase-controls > span {
+  color: #c9b99b;
+  font-size: 0.57rem;
+  letter-spacing: 0.28em;
+  opacity: 0.88;
+}
+
+.foundation-panel.mode-panel {
+  display: grid;
+  grid-template-rows: 21px 47px 18px 56px;
+  align-content: center;
+  gap: 5px;
+}
+
+.mode-panel .foundation-toggle-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  height: 43px;
+  padding: 5px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 240, 206, 0.04), rgba(0, 0, 0, 0.28)),
+    #0b0908;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 238, 199, 0.07),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.54);
+}
+
+.mode-panel .foundation-toggle-row button {
+  min-height: 33px;
+  border-radius: 999px;
+  font-size: 0.57rem;
+  letter-spacing: 0.12em;
+}
+
+.hardware-key-selector {
+  display: grid;
+  grid-template-rows: 16px 38px;
+  gap: 5px;
+}
+
+.mode-panel .key-stepper {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  gap: 8px;
+  align-items: center;
+}
+
+.mode-panel .key-stepper button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.mode-panel .key-stepper strong {
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(226, 182, 91, 0.18);
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, rgba(240, 197, 109, 0.035), rgba(0, 0, 0, 0.22)),
+    #0a0807;
+  color: #f0c46b;
+  font-size: 0.86rem;
+  letter-spacing: 0.09em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 238, 190, 0.055),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.48);
+}
+
+.foundation-panel.chord-panel,
+.foundation-panel.extension-panel {
+  display: grid;
+  grid-template-rows: 23px 1fr;
+  gap: 8px;
+}
+
+.foundation-button-grid {
+  align-content: start;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: 45px 34px;
+  gap: 10px 10px;
+}
+
+.foundation-panel.extension-panel .foundation-button-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: 45px 34px;
+  gap: 10px 10px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button,
+.foundation-panel.extension-panel .foundation-button-grid button {
+  min-height: 0;
+  height: 45px;
+  border-radius: 10px;
+  font-size: 0.61rem;
+  letter-spacing: 0.12em;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button:nth-child(n + 5),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(2),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(6) {
+  height: 34px;
+  min-height: 34px;
+  border-radius: 8px;
+  font-size: 0.5rem;
+  opacity: 0.82;
+}
+
+.foundation-grid button {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.12), rgba(255, 244, 214, 0.025) 38%, rgba(0, 0, 0, 0.54)),
+    linear-gradient(180deg, #302821, #15100d 66%, #060403);
+  border-color: rgba(255, 236, 196, 0.13);
+}
+
+.foundation-grid button.active {
+  color: #ffe5aa;
+  border-color: rgba(240, 181, 101, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(217, 138, 75, 0.045) 46%, rgba(0, 0, 0, 0.55)),
+    linear-gradient(180deg, #302821, #15100d 66%, #060403);
+}
+
+.foundation-grid button.active::after {
+  bottom: 4px;
+  width: min(30px, 38%);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #d98a4b, transparent);
+  box-shadow: 0 0 7px rgba(217, 138, 75, 0.34);
+}
+
+.foundation-panel.smart-panel {
+  display: grid;
+  grid-template-rows: 22px 36px 20px 36px 20px 37px;
+  gap: 4px;
+  align-content: center;
+  padding: 0 0 0 14px;
+}
+
+.smart-panel .path-controls,
+.smart-panel .control-controls,
+.smart-panel .phrase-controls {
+  display: contents;
+}
+
+.smart-panel .path-controls > span,
+.smart-panel .control-controls > span,
+.smart-panel .phrase-controls > span {
+  align-self: end;
+}
+
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact,
+.smart-panel .phrase-controls {
+  min-width: 0;
+}
+
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.foundation-grid button.active {
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.11), rgba(217, 138, 75, 0.035) 46%, rgba(0, 0, 0, 0.56)),
+    linear-gradient(180deg, #302821, #15100d 66%, #060403) !important;
+  border-color: rgba(240, 181, 101, 0.3) !important;
+}
+
+.foundation-grid button:disabled {
+  color: rgba(234, 220, 192, 0.62);
+  opacity: 0.58;
+}
+
+.smart-panel .path-controls button,
+.smart-panel .foundation-toggle-row.compact button {
+  min-height: 35px;
+  height: 35px;
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 0.49rem;
+  letter-spacing: 0.08em;
+}
+
+.smart-panel .phrase-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.smart-panel .phrase-controls > span {
+  grid-column: 1 / -1;
+}
+
+.smart-panel .phrase-controls button {
+  min-height: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 0.48rem;
+}
+
+.foundation-cockpit .foundation-display {
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 235, 190, 0.045), transparent 54%),
+    linear-gradient(180deg, #130f0c, #080605);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 239, 202, 0.06),
+    inset 0 -8px 20px rgba(0, 0, 0, 0.62),
+    0 5px 0 #050403,
+    0 14px 22px rgba(0, 0, 0, 0.28);
+}
+
+.foundation-display .display-content {
+  grid-template-rows: 76px 60px 18px 58px;
+  justify-items: stretch;
+  padding: 25px 60px 17px;
+  background:
+    linear-gradient(180deg, rgba(241, 197, 109, 0.02), transparent 16%, transparent 84%, rgba(241, 197, 109, 0.015)),
+    repeating-linear-gradient(180deg, rgba(241, 197, 109, 0.028) 0 1px, transparent 1px 6px);
+}
+
+.foundation-display .display-main {
+  align-self: center;
+  justify-self: center;
+  max-width: 100%;
+  color: #f0c46b;
+  font-size: 1.76rem;
+  letter-spacing: 0.095em;
+  text-align: center;
+  text-shadow:
+    0 0 11px rgba(240, 196, 107, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.82);
+}
+
+.foundation-display .display-footer,
+.foundation-display .midi-roll-footer {
+  justify-self: center;
+  color: rgba(157, 116, 64, 0.78);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+
+.foundation-display .phrase-reel {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.foundation-display .phrase-track {
+  display: none;
+}
+
+.foundation-display .phrase-slot {
+  position: relative;
+  width: auto;
+  min-width: 0;
+  height: 38px;
+  min-height: 38px;
+  padding: 10px 10px 7px 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(241, 197, 109, 0.14);
+  background:
+    linear-gradient(180deg, rgba(241, 197, 109, 0.042), rgba(0, 0, 0, 0.17)),
+    #100c09;
+}
+
+.foundation-display .phrase-slot::before {
+  width: 5px;
+  height: 5px;
+  left: 10px;
+}
+
+.foundation-display .phrase-slot i {
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  color: rgba(157, 116, 64, 0.76);
+  font-size: 0.46rem;
+  letter-spacing: 0;
+}
+
+.foundation-display .phrase-slot b {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: #f0c46b;
+  font-size: 0.62rem;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foundation-display .phrase-slot.recent.filled,
+.foundation-display .phrase-slot.armed:not(.filled) {
+  border-color: rgba(240, 181, 101, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 170, 0.07),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.4),
+    0 0 8px rgba(217, 138, 75, 0.14);
+}
+
+.foundation-cockpit .selector-bank {
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  height: 260px;
+  min-height: 260px;
+  max-height: 260px;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+  align-content: stretch;
+}
+
+.foundation-cockpit .selector-bank .sound-selector,
+.foundation-cockpit .selector-bank .arp-selector {
+  display: grid;
+  grid-template-columns: 50px 28px minmax(0, 1fr) 28px;
+  grid-template-rows: 48px 14px;
+  gap: 7px;
+  align-items: center;
+  height: 122px;
+  min-height: 122px;
+  max-height: 122px;
+  padding: 18px 13px 13px;
+  border: 1px solid rgba(92, 82, 68, 0.34);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 34%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #c9bfaa, #a89c83);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 222, 0.38),
+    inset 0 -5px 12px rgba(58, 49, 38, 0.18),
+    0 5px 0 rgba(85, 75, 61, 0.42),
+    0 10px 16px rgba(0, 0, 0, 0.13);
+}
+
+.foundation-cockpit .selector-bank .sound-selector + .arp-selector {
+  margin-top: 0;
+}
+
+.foundation-cockpit .selector-bank .sound-label {
+  grid-column: 1;
+  color: #5b5247;
+  font-size: 0.5rem;
+  letter-spacing: 0.15em;
+  text-shadow: 0 1px 0 rgba(245, 231, 202, 0.34);
+}
+
+.foundation-cockpit .selector-bank .sound-label::before {
+  width: 8px;
+  height: 8px;
+  margin-right: 11px;
+  background: #8f6643;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 230, 180, 0.26),
+    0 0 0 1px rgba(83, 63, 43, 0.3);
+}
+
+.foundation-cockpit .selector-bank .arp-selector.arp-active .sound-label::before {
+  background: #d98a4b;
+  box-shadow: 0 0 7px rgba(217, 138, 75, 0.42);
+}
+
+.foundation-cockpit .selector-bank .sound-stepper {
+  display: contents;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper button {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1rem;
+  grid-row: 1;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper button:first-child {
+  grid-column: 2;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper button:last-child {
+  grid-column: 4;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper strong {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.075em;
+  text-align: center;
+}
+
+.foundation-cockpit .selector-bank .selector-position {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.foundation-cockpit .selector-bank .selector-position span {
+  width: 7px;
+  height: 7px;
+}
+
+.keyboard-stage {
+  --wf-black-key: calc(var(--wf-white-key) * 0.4);
+  height: 304px;
+  min-height: 304px;
+  max-height: 304px;
+  padding: 8px 14px 18px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 239, 203, 0.04), rgba(0, 0, 0, 0.13)),
+    #1a1511;
+}
+
+.guidance-rail {
+  height: 36px;
+  max-height: 36px;
+  margin-bottom: 4px;
+  border-radius: 14px 14px 7px 7px;
+}
+
+.guidance-rail::before {
+  inset: 5px 9px;
+}
+
+.keyboard-stage .guidance-lamp-cell {
+  top: 1px;
+  width: 36px;
+  height: 34px;
+  grid-template-rows: 20px 9px;
+}
+
+.keyboard-stage .guidance-jewel {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(151, 113, 62, 0.78);
+  background:
+    radial-gradient(circle at 35% 27%, rgba(255, 216, 148, 0.2), transparent 24%),
+    radial-gradient(circle, #3b2415 0 39%, #160d08 40% 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 219, 150, 0.18),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 244, 210, 0.11);
+}
+
+.guidance-lamp-cell.is-lit .guidance-jewel {
+  background:
+    radial-gradient(circle at 36% 28%, #fff2ba 0 13%, #efb15d 14% 42%, #b65428 43% 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 220, 0.62),
+    inset 0 -2px 5px rgba(82, 36, 12, 0.52),
+    0 0 8px rgba(217, 138, 75, 0.36),
+    0 0 2px rgba(255, 224, 143, 0.54);
+}
+
+.keyboard-stage .guidance-root-label {
+  color: rgba(232, 217, 186, 0.78);
+  font-size: 0.45rem;
+  letter-spacing: 0.02em;
+}
+
+.keyboard-stage .foundation-keyboard {
+  height: 235px;
+  border-radius: 7px 7px 20px 20px;
+}
+
+.keyboard-stage .foundation-keyboard button {
+  top: 14px;
+  bottom: 18px;
+  width: calc(var(--wf-white-key) - 8px);
+  padding-bottom: 17px;
+  border-radius: 3px 3px 11px 11px;
+  border-color: rgba(87, 72, 53, 0.28);
+  background:
+    linear-gradient(180deg, #fff8de 0%, #f3e9c7 45%, #d5c4a0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    inset 0 -10px 16px rgba(111, 84, 45, 0.14),
+    0 5px 0 #7a6a51,
+    0 9px 12px rgba(0, 0, 0, 0.24);
+}
+
+.keyboard-stage .foundation-keyboard button.black {
+  top: 10px;
+  width: var(--wf-black-key);
+  height: 52%;
+  padding-bottom: 8px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #3a3028, #16100c 63%, #040303);
+}
+
+.keyboard-stage .foundation-keyboard button strong {
+  color: #3b3028;
+  font-size: 0.66rem;
+  letter-spacing: 0.01em;
+  transform: translateY(-3px);
+}
+
+.keyboard-stage .foundation-keyboard button.black strong {
+  color: #eadcc0;
+  font-size: 0.54rem;
+  transform: translateY(-2px);
+}
+
+.keyboard-stage .foundation-keyboard button small {
+  display: none;
+}
+
+.keyboard-stage .foundation-keyboard button:focus-visible {
+  outline: none;
+}
+
+.keyboard-stage .foundation-keyboard button.active,
+.keyboard-stage .foundation-keyboard button.played-root {
+  border-color: rgba(87, 72, 53, 0.28);
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -8px 14px rgba(116, 86, 41, 0.18),
+    inset 0 -2px 9px rgba(217, 138, 75, 0.09),
+    0 2px 0 #6d5e48,
+    0 5px 9px rgba(0, 0, 0, 0.22);
+}
+
+.keyboard-stage .foundation-keyboard button.black.active,
+.keyboard-stage .foundation-keyboard button.black.played-root {
+  border-color: rgba(28, 21, 16, 0.8);
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -7px 11px rgba(0, 0, 0, 0.72),
+    inset 0 -2px 8px rgba(217, 138, 75, 0.11),
+    0 1px 0 #050403,
+    0 4px 8px rgba(0, 0, 0, 0.28);
+}
+
+.foundation-panel.smart-panel {
+  display: grid;
+  grid-template-rows: repeat(3, 43px);
+  gap: 6px;
+  align-content: stretch;
+}
+
+.smart-panel .path-controls,
+.smart-panel .control-controls {
+  display: grid;
+  grid-template-rows: 12px 29px;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  align-content: start;
+}
+
+.smart-panel .phrase-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 12px 29px;
+  gap: 3px 10px;
+  align-content: start;
+}
+
+.smart-panel .path-controls > span,
+.smart-panel .control-controls > span,
+.smart-panel .phrase-controls > span {
+  grid-column: 1 / -1;
+  align-self: end;
+}
+
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.smart-panel .path-controls button,
+.smart-panel .foundation-toggle-row.compact button,
+.smart-panel .phrase-controls button {
+  min-height: 29px;
+  height: 29px;
+  padding: 0 7px;
+  border-radius: 8px;
+  font-size: 0.46rem;
+  letter-spacing: 0.075em;
+}
+
+/* Final recorder cleanup: keep one button language and remove cluster box borders. */
+.midi-take-recorder-strip .recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.midi-take-recorder-strip .recorder-take-section,
+.midi-take-recorder-strip .take-actions {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.midi-take-recorder-strip .recorder-mode-switch {
+  gap: 8px;
+  padding: 0;
+}
+
+.midi-take-recorder-strip button,
+.midi-take-recorder-strip .recorder-mode-switch button,
+.midi-take-recorder-strip .recorder-transport button,
+.midi-take-recorder-strip .take-actions button,
+.midi-take-recorder-strip .midi-take-cartridge,
+.midi-take-recorder-strip .midi-take-empty {
+  border-radius: 10px;
+}
+
+.midi-take-recorder-strip .midi-take-empty {
+  display: grid;
+  place-items: center;
+  color: rgba(239, 224, 191, 0.34);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+}
+
+/* Console breathing room and stable recorder take height. */
+.foundation-grid {
+  grid-template-columns: 250px 316px 316px 284px;
+  gap: 18px;
+  height: 194px;
+  padding: 19px 22px 20px;
+}
+
+.foundation-grid .foundation-panel {
+  padding: 0 10px;
+}
+
+.foundation-grid .foundation-panel + .foundation-panel {
+  border-left: 0 !important;
+}
+
+.foundation-panel.mode-panel {
+  grid-template-rows: 20px 46px 18px 54px;
+}
+
+.foundation-panel.chord-panel,
+.foundation-panel.extension-panel {
+  grid-template-rows: 22px 1fr;
+  gap: 10px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid,
+.foundation-panel.extension-panel .foundation-button-grid {
+  gap: 12px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button,
+.foundation-panel.extension-panel .foundation-button-grid button {
+  height: 44px;
+}
+
+.foundation-panel.chord-panel .foundation-button-grid button:nth-child(n + 5),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(2),
+.foundation-panel.extension-panel .foundation-button-grid button:nth-child(6) {
+  height: 32px;
+  min-height: 32px;
+}
+
+.mode-panel .foundation-toggle-row,
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact,
+.smart-panel .phrase-controls {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.mode-panel .foundation-toggle-row,
+.smart-panel .path-controls > div,
+.smart-panel .foundation-toggle-row.compact {
+  gap: 10px;
+}
+
+.mode-panel .foundation-toggle-row button,
+.smart-panel .path-controls button,
+.smart-panel .foundation-toggle-row.compact button,
+.smart-panel .phrase-controls button {
+  border-radius: 9px;
+}
+
+.foundation-panel.smart-panel {
+  grid-template-rows: 12px 31px 12px 31px 12px 31px;
+  gap: 5px;
+  padding-left: 8px;
+}
+
+.smart-panel .path-controls button,
+.smart-panel .foundation-toggle-row.compact button,
+.smart-panel .phrase-controls button {
+  height: 31px;
+  min-height: 31px;
+}
+
+.midi-take-recorder-strip {
+  height: 68px;
+  min-height: 68px;
+  max-height: 68px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.midi-take-recorder-strip .recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.midi-take-recorder-strip .recorder-take-section,
+.midi-take-recorder-strip .take-actions {
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  align-items: center;
+}
+
+.midi-take-recorder-strip .midi-take-cartridge,
+.midi-take-recorder-strip .midi-take-empty {
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  padding: 6px 12px;
+  box-sizing: border-box;
+}
+
+/* Top deck repair: SOUND/ARP, VOICING and display as one hardware family. */
+.foundation-cockpit .selector-bank {
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.foundation-cockpit .selector-bank .sound-selector,
+.foundation-cockpit .selector-bank .arp-selector {
+  grid-template-columns: 72px 30px minmax(0, 1fr) 30px;
+  grid-template-rows: 48px 14px;
+  gap: 7px;
+  height: 123px;
+  min-height: 123px;
+  max-height: 123px;
+  padding: 18px 14px 13px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.13), transparent 34%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, #c7bea8 0%, #b1a58d 46%, #998d75 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 249, 229, 0.34),
+    inset 0 0 0 1px rgba(89, 77, 61, 0.25),
+    inset 0 -7px 13px rgba(63, 53, 41, 0.18),
+    0 5px 0 rgba(82, 72, 58, 0.34),
+    0 11px 16px rgba(33, 27, 20, 0.13);
+}
+
+.foundation-cockpit .selector-bank .sound-label {
+  min-width: 0;
+  overflow: visible;
+  color: #5c5248;
+  font-size: 0.43rem;
+  letter-spacing: 0.09em;
+  text-align: left;
+}
+
+.foundation-cockpit .selector-bank .sound-label::before {
+  width: 7px;
+  height: 7px;
+  margin-right: 9px;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 9px;
+  color: #eadcc0;
+}
+
+.foundation-cockpit .selector-bank .sound-stepper strong {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 11, 8, 0.82);
+  border-radius: 9px;
+  color: #f0c46b;
+  background:
+    linear-gradient(180deg, rgba(255, 223, 174, 0.08), rgba(0, 0, 0, 0.28)),
+    repeating-linear-gradient(90deg, rgba(255, 232, 188, 0.026) 0 1px, transparent 1px 7px),
+    #19120e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 234, 195, 0.1),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.38),
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.foundation-cockpit .selector-bank .selector-position {
+  grid-column: 3;
+  gap: 8px;
+}
+
+.foundation-cockpit .voicing-encoder {
+  grid-template-rows: 30px 180px 20px;
+  padding: 25px 30px 18px;
+}
+
+.foundation-cockpit .voicing-title {
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+}
+
+.foundation-cockpit .voicing-dial {
+  width: 148px;
+  height: 148px;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(255, 247, 225, 0.08), transparent 18%),
+    linear-gradient(145deg, #211c18, #090706 72%);
+  border: 1px solid rgba(255, 232, 190, 0.08);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 244, 220, 0.055),
+    inset 0 -14px 19px rgba(0, 0, 0, 0.7),
+    0 5px 0 #050403,
+    0 13px 18px rgba(0, 0, 0, 0.3);
+}
+
+.foundation-cockpit .voicing-dial::before {
+  background:
+    conic-gradient(from -132deg, transparent 0 17deg, rgba(217, 138, 75, 0.36) 17deg 20deg, transparent 20deg 42deg, rgba(217, 138, 75, 0.36) 42deg 45deg, transparent 45deg 67deg, rgba(217, 138, 75, 0.36) 67deg 70deg, transparent 70deg 92deg, rgba(217, 138, 75, 0.36) 92deg 95deg, transparent 95deg 117deg, rgba(217, 138, 75, 0.36) 117deg 120deg, transparent 120deg 142deg, rgba(217, 138, 75, 0.36) 142deg 145deg, transparent 145deg 167deg, rgba(217, 138, 75, 0.36) 167deg 170deg, transparent 170deg 360deg);
+  mask: radial-gradient(circle, transparent 0 72%, #000 73% 79%, transparent 80%);
+}
+
+.foundation-cockpit .voicing-tick-ring {
+  inset: -34px;
+}
+
+.foundation-cockpit .voicing-tick-ring span {
+  width: 3px;
+  height: 15px;
+  border-radius: 2px;
+  background: rgba(165, 121, 62, 0.35);
+}
+
+.foundation-cockpit .voicing-tick-ring span.lit {
+  background: #f19855;
+  box-shadow: 0 0 7px rgba(241, 152, 85, 0.34);
+}
+
+.foundation-cockpit .voicing-cap {
+  inset: 15px;
+  background:
+    radial-gradient(circle at 38% 31%, rgba(255, 245, 220, 0.13), transparent 17%),
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 7px),
+    linear-gradient(145deg, #25201c, #0a0807 70%);
+}
+
+.foundation-cockpit .voicing-cap span {
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+}
+
+.foundation-display .display-content {
+  grid-template-rows: 70px 54px 18px 50px;
+  padding: 24px 68px 20px;
+}
+
+.foundation-display .display-main {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 1.58rem;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foundation-display .display-tone-trace {
+  max-width: 540px;
+  width: 100%;
+  justify-self: center;
+  overflow: visible;
+}
+
+.foundation-display .phrase-reel {
+  max-width: 560px;
+  justify-self: center;
+  gap: 12px;
+}
+
+.foundation-display .phrase-slot {
+  height: 34px;
+  min-height: 34px;
+  padding: 8px 10px 6px 23px;
+  border-radius: 7px;
+}
+
+.foundation-display .phrase-slot i {
+  top: 6px;
+  left: 9px;
+  font-size: 0.43rem;
+}
+
+.foundation-display .phrase-slot b {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+}
+
+/* Voicing final alignment: centered dial, clean pointer, correct tick geometry. */
+.foundation-cockpit .voicing-encoder {
+  grid-template-rows: 32px 176px 20px;
+  padding: 26px 30px 18px;
+  justify-items: center;
+}
+
+.foundation-cockpit .voicing-dial {
+  width: 154px;
+  height: 154px;
+  align-self: center;
+  justify-self: center;
+  overflow: visible;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255, 247, 225, 0.095), transparent 17%),
+    radial-gradient(circle at 50% 50%, rgba(255, 232, 190, 0.025) 0 26%, transparent 27%),
+    linear-gradient(145deg, #221d19, #0a0807 72%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 244, 220, 0.055),
+    inset 0 -12px 18px rgba(0, 0, 0, 0.68),
+    0 4px 0 #050403,
+    0 10px 15px rgba(0, 0, 0, 0.28);
+}
+
+.foundation-cockpit .voicing-dial::after {
+  content: none;
+}
+
+.foundation-cockpit .voicing-dial::before {
+  inset: -20px;
+  background:
+    conic-gradient(from -135deg, transparent 0 18deg, rgba(165, 121, 62, 0.26) 18deg 21deg, transparent 21deg 43deg, rgba(165, 121, 62, 0.26) 43deg 46deg, transparent 46deg 68deg, rgba(165, 121, 62, 0.26) 68deg 71deg, transparent 71deg 93deg, rgba(165, 121, 62, 0.26) 93deg 96deg, transparent 96deg 118deg, rgba(165, 121, 62, 0.26) 118deg 121deg, transparent 121deg 143deg, rgba(165, 121, 62, 0.26) 143deg 146deg, transparent 146deg 168deg, rgba(165, 121, 62, 0.26) 168deg 171deg, transparent 171deg 360deg);
+  mask: radial-gradient(circle, transparent 0 69%, #000 70% 76%, transparent 77%);
+}
+
+.foundation-cockpit .voicing-tick-ring {
+  inset: 0;
+}
+
+.foundation-cockpit .voicing-tick-ring span {
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 12px;
+  margin-left: -1.5px;
+  margin-top: -83px;
+  transform-origin: 1.5px 83px;
+  border-radius: 2px;
+  background: rgba(151, 113, 62, 0.42);
+}
+
+.foundation-cockpit .voicing-tick-ring span.lit {
+  background: #f19855;
+  box-shadow: 0 0 6px rgba(241, 152, 85, 0.34);
+}
+
+.foundation-cockpit .voicing-cap {
+  inset: 16px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255, 245, 220, 0.13), transparent 16%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.018) 0 5%, transparent 6%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 7px),
+    linear-gradient(145deg, #25201c, #0a0807 70%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 244, 220, 0.06),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.66);
+}
+
+.foundation-cockpit .voicing-cap span {
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 42px;
+  margin: 0;
+  border-radius: 4px;
+  transform: translate(-50%, -94%);
+  background: linear-gradient(180deg, #ffb06a, #ef8747);
+  box-shadow: 0 0 7px rgba(241, 152, 85, 0.3);
+}
+
+/* Recorder and guidance rail final behavior polish. */
+.midi-take-recorder-strip.is-recording .rec-button {
+  color: #f5d3c8;
+  filter: none;
+  opacity: 1;
+  border-color: rgba(185, 74, 60, 0.58);
+}
+
+.midi-take-recorder-strip.is-recording .rec-button::before {
+  animation: wf-rec-led-blink 820ms ease-in-out infinite;
+}
+
+@keyframes wf-rec-led-blink {
+  0%, 100% {
+    background: #7a352f;
+    box-shadow: inset 0 1px 0 rgba(255, 228, 206, 0.24);
   }
-
-  .foundation-cockpit {
-    grid-template-columns: 280px minmax(560px, 1fr) 280px;
-    gap: 22px;
-  }
-
-  .foundation-cockpit .foundation-display {
-    height: 260px;
-    min-height: 260px;
-    max-height: 260px;
-  }
-
-  .foundation-cockpit .voicing-encoder {
-    min-height: 260px;
-  }
-
-  .foundation-cockpit .selector-bank {
-    min-height: 260px;
-  }
-
-  .foundation-grid {
-    grid-template-columns: minmax(210px, 0.78fr) minmax(420px, 1.52fr) minmax(360px, 1.34fr) minmax(210px, 0.78fr);
-    grid-template-rows: auto;
-    grid-template-areas: "mode chord extension smart";
-    gap: 22px;
-    min-height: 148px;
-    padding: 16px 20px 17px;
-  }
-
-  .foundation-panel.mode-panel { grid-area: mode; }
-  .foundation-panel.chord-panel { grid-area: chord; }
-  .foundation-panel.extension-panel { grid-area: extension; }
-  .foundation-panel.smart-panel { grid-area: smart; }
-
-  .foundation-grid .foundation-panel {
-    padding: 5px 13px;
-  }
-
-  .foundation-grid .foundation-panel:first-child {
-    padding-left: 4px;
-  }
-
-  .foundation-grid .foundation-panel:last-child {
-    padding-right: 4px;
-  }
-
-  .midi-take-recorder-strip {
-    grid-template-columns: minmax(145px, 0.62fr) minmax(128px, 0.54fr) minmax(230px, 0.95fr) minmax(382px, 1.5fr);
+  48% {
+    background: #ff6b56;
+    box-shadow:
+      0 0 10px rgba(255, 107, 86, 0.68),
+      inset 0 1px 0 rgba(255, 228, 206, 0.45);
   }
 }
 
-@media (min-width: 900px) and (max-width: 1179px) {
-  .foundation-device {
-    --wf-module-width: min(100%, 980px);
-  }
+.midi-take-recorder-strip .take-actions button:last-child {
+  opacity: 1;
+  color: #eadcc0;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(255, 244, 214, 0.02) 36%, rgba(0, 0, 0, 0.54)),
+    linear-gradient(180deg, #312820, #17120e 68%, #080605);
+}
 
-  .foundation-grid {
-    grid-template-columns: minmax(205px, 0.78fr) minmax(0, 1.22fr);
-    grid-template-areas:
-      "mode chord"
-      "smart extension";
-    gap: 14px 18px;
-    padding: 16px;
-  }
+.keyboard-stage .guidance-lamp-cell {
+  top: 3px;
+  height: 26px;
+  grid-template-rows: 1fr;
+  place-items: center;
+}
 
-  .foundation-grid .foundation-panel + .foundation-panel {
-    border-left: 0 !important;
-  }
+.keyboard-stage .guidance-root-label {
+  display: none;
+}
 
-  .foundation-panel.smart-panel {
-    border-top: 1px solid rgba(239, 210, 165, 0.07) !important;
-    padding-top: 12px;
-  }
+.keyboard-stage .guidance-jewel {
+  align-self: center;
+  justify-self: center;
+}
 
-  .midi-take-recorder-strip {
-    grid-template-columns: minmax(160px, 0.8fr) minmax(126px, 0.6fr) minmax(250px, 1fr);
-  }
+/* HarmonyControlSurface rebuild: replaces the former middle button matrix. */
+.foundation-scale-stage {
+  height: 1090px;
+}
 
-  .recorder-take-section {
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
-  }
+.foundation-device {
+  height: 1056px;
+  min-height: 1056px;
+  max-height: 1056px;
+  padding: 34px 38px 32px;
+}
 
-  .keyboard-stage {
-    --wf-keyboard-min: 100%;
+.foundation-cockpit,
+.harmony-control-surface,
+.midi-take-recorder-strip,
+.keyboard-stage {
+  width: 1300px;
+  min-width: 1300px;
+  max-width: 1300px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.harmony-control-surface {
+  position: relative;
+  z-index: 1;
+  height: 244px;
+  min-height: 244px;
+  max-height: 244px;
+  display: grid;
+  grid-template-columns: 250px 328px 278px 290px;
+  gap: 30px;
+  align-items: stretch;
+  margin-bottom: 16px;
+  padding: 30px 32px 28px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 28px;
+  color: #e4d6b8;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(237, 181, 101, 0.035), transparent 33%),
+    linear-gradient(180deg, rgba(255, 238, 196, 0.026), rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(90deg, rgba(255, 236, 198, 0.012) 0 1px, transparent 1px 10px),
+    #171310;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.046),
+    inset 0 0 0 1px rgba(48, 41, 33, 0.72),
+    inset 0 -20px 30px rgba(0, 0, 0, 0.34),
+    0 5px 0 rgba(47, 37, 28, 0.54),
+    0 14px 22px rgba(0, 0, 0, 0.16);
+}
+
+.harmony-surface-grain {
+  position: absolute;
+  inset: 10px 12px;
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 20%, rgba(255, 236, 198, 0.035) 20% 20.12%, transparent 20.12% 48.5%, rgba(255, 236, 198, 0.035) 48.5% 48.62%, transparent 48.62% 73.4%, rgba(255, 236, 198, 0.035) 73.4% 73.52%, transparent 73.52%),
+    radial-gradient(ellipse at 50% 100%, rgba(0, 0, 0, 0.2), transparent 48%);
+  opacity: 0.88;
+}
+
+.hcs-zone {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.hcs-zone + .hcs-zone::before {
+  content: "";
+  position: absolute;
+  left: -15px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(185, 170, 144, 0.16), transparent);
+}
+
+.hcs-label {
+  align-self: end;
+  color: #b9aa90;
+  font-size: 0.57rem;
+  font-weight: 950;
+  letter-spacing: 0.26em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.78);
+}
+
+.harmony-control-surface button,
+.midi-take-recorder-strip button {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid rgba(8, 7, 6, 0.76);
+  border-radius: 10px;
+  color: #e4d6b8;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(255, 244, 214, 0.018) 38%, rgba(0, 0, 0, 0.56)),
+    linear-gradient(180deg, #332a23, #17120e 67%, #070504);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, 0.13),
+    inset 0 -4px 7px rgba(0, 0, 0, 0.7),
+    0 3px 0 #030202,
+    0 8px 12px rgba(0, 0, 0, 0.27);
+  font-weight: 950;
+  text-align: center;
+  text-transform: uppercase;
+  transition: transform 90ms ease, box-shadow 90ms ease, border-color 90ms ease, color 90ms ease;
+}
+
+.harmony-control-surface button:hover,
+.midi-take-recorder-strip button:hover {
+  border-color: rgba(255, 236, 196, 0.22);
+}
+
+.harmony-control-surface button:active:not(:disabled),
+.harmony-control-surface button.active,
+.midi-take-recorder-strip button:active:not(:disabled),
+.midi-take-recorder-strip button.active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, 0.1),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.72),
+    0 1px 0 #030202,
+    0 5px 9px rgba(0, 0, 0, 0.22);
+}
+
+.harmony-control-surface button.active {
+  border-color: rgba(237, 181, 101, 0.34);
+  color: #ffe7b5;
+}
+
+.harmony-control-surface button.active::after,
+.midi-take-recorder-strip button.active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: min(32px, 42%);
+  height: 2px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, #d48948, transparent);
+  box-shadow: 0 0 7px rgba(212, 137, 72, 0.38);
+}
+
+.harmony-control-surface button:disabled,
+.midi-take-recorder-strip button:disabled {
+  color: rgba(228, 214, 184, 0.42);
+  filter: saturate(0.72);
+  opacity: 0.62;
+}
+
+.hcs-setup {
+  grid-template-rows: 16px 44px 18px 48px;
+  gap: 14px;
+  align-content: center;
+}
+
+.hcs-mode-switch,
+.hcs-key-selector {
+  display: grid;
+  align-items: center;
+}
+
+.hcs-mode-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.hcs-mode-switch button {
+  height: 42px;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
+
+.hcs-key-label {
+  margin-top: 2px;
+}
+
+.hcs-key-selector {
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 13px;
+}
+
+.hcs-key-selector button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  font-size: 1.05rem;
+}
+
+.hcs-key-selector strong {
+  height: 42px;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(226, 182, 91, 0.17);
+  border-radius: 10px;
+  color: #f0c46b;
+  background:
+    linear-gradient(180deg, rgba(240, 197, 109, 0.038), rgba(0, 0, 0, 0.24)),
+    #0b0807;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 238, 190, 0.06),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.5);
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hcs-chord,
+.hcs-extension {
+  grid-template-rows: 16px 52px 38px;
+  gap: 16px;
+  align-content: center;
+}
+
+.hcs-button-bank {
+  display: grid;
+  min-width: 0;
+  gap: 13px;
+}
+
+.hcs-primary-bank {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hcs-secondary-bank {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 76%;
+}
+
+.hcs-extension-secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 48%;
+}
+
+.hcs-primary-bank button {
+  height: 50px;
+  font-size: 0.58rem;
+  letter-spacing: 0.09em;
+}
+
+.hcs-secondary-bank button {
+  height: 36px;
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+  opacity: 0.82;
+}
+
+.hcs-guidance {
+  grid-template-rows: repeat(3, 52px);
+  gap: 13px;
+  align-content: center;
+}
+
+.hcs-guidance-row {
+  display: grid;
+  grid-template-rows: 13px 37px;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hcs-path-switch,
+.hcs-control-switch,
+.hcs-phrase-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.hcs-path-switch,
+.hcs-control-switch {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hcs-phrase-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hcs-path-switch button,
+.hcs-control-switch button,
+.hcs-phrase-actions button {
+  height: 37px;
+  font-size: 0.48rem;
+  letter-spacing: 0.075em;
+}
+
+.midi-take-recorder-strip {
+  height: 82px;
+  min-height: 82px;
+  max-height: 82px;
+  grid-template-columns: 220px 188px 312px 464px;
+  gap: 22px;
+  padding: 17px 28px;
+  margin-bottom: 14px;
+}
+
+.midi-take-recorder-strip .recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.midi-take-recorder-strip .recorder-take-section,
+.midi-take-recorder-strip .take-actions {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.midi-take-recorder-strip .recorder-mode-switch,
+.midi-take-recorder-strip .recorder-transport,
+.midi-take-recorder-strip .take-actions {
+  gap: 13px;
+  padding: 0;
+}
+
+.midi-take-recorder-strip button {
+  height: 42px;
+  min-height: 42px;
+  border-radius: 10px;
+}
+
+.midi-take-recorder-strip .recorder-take-section {
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.midi-take-recorder-strip .midi-take-cartridge,
+.midi-take-recorder-strip .midi-take-empty {
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  border-radius: 10px;
+}
+
+.midi-take-recorder-strip .take-actions button:last-child {
+  opacity: 1;
+  color: #e4d6b8;
+}
+
+.midi-take-recorder-strip.is-recording .rec-button {
+  color: #e4d6b8;
+  filter: none;
+  opacity: 1;
+  border-color: rgba(8, 7, 6, 0.76);
+}
+
+.midi-take-recorder-strip .rec-button::before,
+.midi-take-recorder-strip .print-button::before {
+  content: none;
+}
+
+.midi-take-recorder-strip.is-recording .capture-led {
+  background: #ff6b56;
+  animation: wf-rec-status-pulse 820ms ease-in-out infinite;
+}
+
+@keyframes wf-rec-status-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 4px rgba(255, 107, 86, 0.28),
+      inset 0 1px 1px rgba(255, 237, 202, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 13px rgba(255, 107, 86, 0.72),
+      inset 0 1px 1px rgba(255, 237, 202, 0.48);
   }
 }
 
-@media (min-width: 600px) and (max-width: 899px) {
-  .foundation-device {
-    --wf-module-width: min(100%, 780px);
-  }
-
-  .foundation-grid {
-    gap: 13px;
-    padding: 15px;
-  }
-
-  .foundation-grid .foundation-panel + .foundation-panel {
-    border-left: 0 !important;
-    border-top: 1px solid rgba(239, 210, 165, 0.07) !important;
-  }
-
-  .foundation-panel.smart-panel {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .midi-take-recorder-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(132px, 0.62fr);
-  }
-
-  .midi-take-recorder-strip .recorder-transport,
-  .recorder-take-section {
-    grid-column: 1 / -1;
-  }
-
-  .keyboard-stage {
-    --wf-keyboard-min: 720px;
-  }
+/* Final hardware-button normalization for the rebuilt harmony surface and recorder. */
+.harmony-control-surface button,
+.harmony-control-surface button.active,
+.harmony-control-surface button[aria-pressed="true"],
+.midi-take-recorder-strip button,
+.midi-take-recorder-strip button.active {
+  color: #e4d6b8;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(255, 244, 214, 0.018) 38%, rgba(0, 0, 0, 0.56)),
+    linear-gradient(180deg, #332a23, #17120e 67%, #070504);
 }
 
-@media (max-width: 599px) {
-  .foundation-device {
-    --wf-module-width: 100%;
-  }
-
-  .foundation-display .display-main {
-    font-size: clamp(1.12rem, 6vw, 1.72rem);
-  }
-
-  .selector-bank {
-    grid-template-rows: repeat(2, minmax(50px, 1fr));
-    padding: 9px;
-  }
-
-  .selector-bank .sound-selector,
-  .selector-bank .arp-selector {
-    grid-template-columns: 54px minmax(0, 1fr) 36px;
-  }
-
-  .selector-bank .sound-stepper {
-    grid-template-columns: 28px minmax(0, 1fr) 28px;
-    gap: 5px;
-  }
-
-  .selector-bank .sound-stepper strong {
-    font-size: 0.68rem;
-  }
-
-  .foundation-panel.chord-panel .foundation-button-grid,
-  .foundation-panel.extension-panel .foundation-button-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(1),
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(3),
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(4),
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(5),
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(2),
-  .foundation-panel.extension-panel .foundation-button-grid button:nth-child(6) {
-    order: initial;
-  }
-
-  .foundation-panel.smart-panel {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .midi-take-recorder-strip {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .recorder-take-section {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .keyboard-stage {
-    --wf-keyboard-min: 650px;
-    padding: 9px 10px 16px;
-  }
-
-  .guidance-rail {
-    height: 40px;
-    max-height: 40px;
-  }
-
-  .keyboard-stage .foundation-keyboard {
-    height: 174px;
-  }
+.harmony-control-surface button.active {
+  color: #ffe7b5;
+  border-color: rgba(237, 181, 101, 0.34);
 }
 
-@media (min-width: 900px) and (max-width: 1179px) {
-  .smart-panel .path-controls,
-  .smart-panel .control-controls {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .smart-panel .phrase-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .smart-panel .phrase-controls > span {
-    grid-column: 1 / -1;
-  }
-
-  .smart-panel .path-controls > span,
-  .smart-panel .control-controls > span,
-  .smart-panel .phrase-controls > span {
-    margin-bottom: 0;
-  }
-
-  .path-controls button,
-  .control-controls button,
-  .smart-panel .phrase-controls button {
-    min-height: 30px;
-    padding-inline: 6px;
-  }
+.midi-take-recorder-strip .take-actions button:last-child {
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(255, 244, 214, 0.018) 38%, rgba(0, 0, 0, 0.56)),
+    linear-gradient(180deg, #332a23, #17120e 67%, #070504);
 }
 
-@media (min-width: 900px) and (max-width: 1179px) {
-  .foundation-cockpit {
-    display: grid;
-    grid-template-columns: minmax(190px, 0.78fr) minmax(370px, 1.55fr) minmax(210px, 0.86fr);
-    grid-template-areas: "voicing display selectors";
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .foundation-cockpit .foundation-expression-row {
-    display: contents;
-  }
-
-  .foundation-cockpit .voicing-encoder {
-    grid-area: voicing;
-    min-height: 228px;
-    align-self: stretch;
-  }
-
-  .foundation-cockpit .display-bay {
-    grid-area: display;
-    min-width: 0;
-  }
-
-  .foundation-cockpit .foundation-display {
-    height: 228px;
-    min-height: 228px;
-    max-height: 228px;
-  }
-
-  .foundation-cockpit .selector-bank {
-    grid-area: selectors;
-    min-height: 228px;
-    align-self: stretch;
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-
-  .foundation-cockpit .selector-bank .sound-selector,
-  .foundation-cockpit .selector-bank .arp-selector {
-    grid-template-columns: 54px minmax(0, 1fr) 34px;
-    padding-inline: 2px;
-  }
-
-  .foundation-cockpit .selector-bank .sound-stepper {
-    grid-template-columns: 27px minmax(0, 1fr) 27px;
-    gap: 5px;
-  }
-
-  .foundation-cockpit .selector-bank .sound-stepper strong {
-    min-height: 32px;
-    font-size: clamp(0.62rem, 1vw, 0.78rem);
-    letter-spacing: 0.08em;
-  }
-
-  .smart-panel .path-controls,
-  .smart-panel .control-controls {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .smart-panel .phrase-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .smart-panel .phrase-controls > span {
-    grid-column: 1 / -1;
-  }
-
-  .path-controls button,
-  .control-controls button,
-  .smart-panel .phrase-controls button {
-    min-height: 30px;
-    padding-inline: 6px;
-  }
+.midi-take-recorder-strip button:disabled,
+.midi-take-recorder-strip .take-actions button:disabled,
+.midi-take-recorder-strip .take-actions button:last-child:disabled {
+  color: rgba(228, 214, 184, 0.42);
+  filter: saturate(0.72);
+  opacity: 0.62;
 }
 
-@media (min-width: 900px) {
-  .foundation-grid {
-    min-height: 0;
-  }
-
-  .foundation-panel.smart-panel {
-    align-content: start;
-    gap: 9px;
-  }
-
-  .smart-panel .path-controls,
-  .smart-panel .control-controls {
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr);
-    align-items: center;
-    gap: 7px;
-  }
-
-  .smart-panel .phrase-controls {
-    display: grid;
-    grid-template-columns: 58px repeat(2, minmax(0, 1fr));
-    align-items: center;
-    gap: 6px;
-  }
-
-  .smart-panel .path-controls > span,
-  .smart-panel .control-controls > span,
-  .smart-panel .phrase-controls > span {
-    grid-column: auto;
-    margin: 0;
-    min-width: 0;
-    font-size: 0.49rem;
-    letter-spacing: 0.2em;
-  }
-
-  .smart-panel .path-controls > div,
-  .smart-panel .foundation-toggle-row.compact {
-    margin: 0;
-  }
-
-  .path-controls button,
-  .control-controls button,
-  .smart-panel .phrase-controls button {
-    min-height: 28px;
-    padding-inline: 7px;
-    font-size: 0.43rem;
-    letter-spacing: 0.07em;
-  }
-}
-
-@media (min-width: 900px) and (max-width: 1179px) {
-  .smart-panel .path-controls,
-  .smart-panel .control-controls {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .smart-panel .phrase-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .smart-panel .phrase-controls > span {
-    grid-column: 1 / -1;
-  }
-
-  .smart-panel .path-controls > span,
-  .smart-panel .control-controls > span,
-  .smart-panel .phrase-controls > span {
-    margin-bottom: 0;
-  }
-
-  .path-controls button,
-  .control-controls button,
-  .smart-panel .phrase-controls button {
-    min-height: 30px;
-    padding-inline: 6px;
-  }
+.midi-take-recorder-strip.is-recording .rec-button:disabled {
+  color: #e4d6b8;
+  filter: none;
+  opacity: 1;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.13), rgba(255, 244, 214, 0.018) 38%, rgba(0, 0, 0, 0.56)),
+    linear-gradient(180deg, #332a23, #17120e 67%, #070504);
 }
