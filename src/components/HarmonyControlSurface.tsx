@@ -46,6 +46,9 @@ const extensionLabel: Record<FoundationExtension, string> = {
   "9": "9",
 };
 
+const PRIMARY_EXTENSIONS: FoundationExtension[] = ["None", "7", "Maj7", "Add9"];
+const SECONDARY_EXTENSIONS: FoundationExtension[] = ["6", "9"];
+
 export function HarmonyControlSurface({
   keyModeEnabled,
   setFoundationKeyMode,
@@ -73,8 +76,8 @@ export function HarmonyControlSurface({
 }: HarmonyControlSurfaceProps) {
   const primaryChords = chordTypes.slice(0, 4);
   const secondaryChords = chordTypes.slice(4);
-  const primaryExtensions: FoundationExtension[] = ["None", "7", "Maj7", "Add9"];
-  const secondaryExtensions = extensions.filter((item) => item === "6" || item === "9");
+  const primaryExtensions = PRIMARY_EXTENSIONS.filter((item) => extensions.includes(item));
+  const secondaryExtensions = SECONDARY_EXTENSIONS.filter((item) => extensions.includes(item));
 
   return (
     <section className="harmony-control-surface" aria-label="Harmony Control Surface">
@@ -83,10 +86,10 @@ export function HarmonyControlSurface({
       <div className="hcs-zone hcs-setup">
         <div className="hcs-label">MODE</div>
         <div className="hcs-mode-switch" aria-label="Mode">
-          <button className={!keyModeEnabled ? "active" : ""} type="button" onClick={() => setFoundationKeyMode(false)}>
+          <button className={!keyModeEnabled ? "active" : ""} type="button" aria-pressed={!keyModeEnabled} onClick={() => setFoundationKeyMode(false)}>
             FREE
           </button>
-          <button className={keyModeEnabled ? "active" : ""} type="button" onClick={() => setFoundationKeyMode(true)}>
+          <button className={keyModeEnabled ? "active" : ""} type="button" aria-pressed={keyModeEnabled} onClick={() => setFoundationKeyMode(true)}>
             GUIDED
           </button>
         </div>
@@ -103,14 +106,14 @@ export function HarmonyControlSurface({
         <div className="hcs-label">CHORD</div>
         <div className="hcs-button-bank hcs-primary-bank">
           {primaryChords.map((type) => (
-            <button key={type} className={chordType === type ? "active" : ""} type="button" onClick={() => setChordType(type)} disabled={chordDisabled}>
+            <button key={type} className={chordType === type ? "active" : ""} type="button" aria-pressed={chordType === type} onClick={() => setChordType(type)} disabled={chordDisabled}>
               {chordLabel[type]}
             </button>
           ))}
         </div>
         <div className="hcs-button-bank hcs-secondary-bank">
           {secondaryChords.map((type) => (
-            <button key={type} className={chordType === type ? "active" : ""} type="button" onClick={() => setChordType(type)} disabled={chordDisabled}>
+            <button key={type} className={chordType === type ? "active" : ""} type="button" aria-pressed={chordType === type} onClick={() => setChordType(type)} disabled={chordDisabled}>
               {chordLabel[type]}
             </button>
           ))}
@@ -121,14 +124,14 @@ export function HarmonyControlSurface({
         <div className="hcs-label">EXTENSION</div>
         <div className="hcs-button-bank hcs-primary-bank">
           {primaryExtensions.map((item) => (
-            <button key={item} className={extension === item ? "active" : ""} type="button" onClick={() => setChordExtension(item)} disabled={extensionDisabled}>
+            <button key={item} className={extension === item ? "active" : ""} type="button" aria-pressed={extension === item} onClick={() => setChordExtension(item)} disabled={extensionDisabled}>
               {extensionLabel[item]}
             </button>
           ))}
         </div>
         <div className="hcs-button-bank hcs-secondary-bank hcs-extension-secondary">
           {secondaryExtensions.map((item) => (
-            <button key={item} className={extension === item ? "active" : ""} type="button" onClick={() => setChordExtension(item)} disabled={extensionDisabled}>
+            <button key={item} className={extension === item ? "active" : ""} type="button" aria-pressed={extension === item} onClick={() => setChordExtension(item)} disabled={extensionDisabled}>
               {extensionLabel[item]}
             </button>
           ))}
@@ -140,7 +143,7 @@ export function HarmonyControlSurface({
           <div className="hcs-label">PATH</div>
           <div className="hcs-path-switch" aria-label="Heatmap Path">
             {pathModes.map((mode) => (
-              <button key={mode} className={harmonyPath === mode ? "active" : ""} type="button" onClick={() => setHarmonyPath(mode)} disabled={pathDisabled}>
+              <button key={mode} className={harmonyPath === mode ? "active" : ""} type="button" aria-pressed={harmonyPath === mode} onClick={() => setHarmonyPath(mode)} disabled={pathDisabled}>
                 {mode}
               </button>
             ))}
@@ -150,8 +153,8 @@ export function HarmonyControlSurface({
         <div className="hcs-guidance-row">
           <div className="hcs-label">CONTROL</div>
           <div className="hcs-control-switch" aria-label="Smart Control">
-            <button className={!manualLock ? "active" : ""} type="button" onClick={() => setManualLock(false)} disabled={pathDisabled}>AUTO</button>
-            <button className={manualLock ? "active" : ""} type="button" onClick={() => setManualLock(true)} disabled={pathDisabled}>MANUAL</button>
+            <button className={!manualLock ? "active" : ""} type="button" aria-pressed={!manualLock} onClick={() => setManualLock(false)} disabled={pathDisabled}>AUTO</button>
+            <button className={manualLock ? "active" : ""} type="button" aria-pressed={manualLock} onClick={() => setManualLock(true)} disabled={pathDisabled}>MANUAL</button>
             <button type="button" onClick={cycleHarmonyAlternative} disabled={altDisabled}>ALT</button>
           </div>
         </div>

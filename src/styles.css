@@ -11957,11 +11957,6 @@ body {
   border-color: rgba(8, 7, 6, 0.76);
 }
 
-.midi-take-recorder-strip .rec-button::before,
-.midi-take-recorder-strip .print-button::before {
-  content: none;
-}
-
 .midi-take-recorder-strip.is-recording .capture-led {
   background: #ff6b56;
   animation: wf-rec-status-pulse 820ms ease-in-out infinite;
@@ -12314,4 +12309,129 @@ body {
       0 0 0 1px rgba(92, 24, 18, 0.72),
       0 0 9px rgba(255, 95, 79, 0.62);
   }
+}
+
+/* Final interaction polish: stable hardware button presses without browser artifacts. */
+.foundation-app button {
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.harmony-control-surface button,
+.midi-take-recorder-strip button,
+.foundation-app .status-cluster button.utility-button,
+.foundation-app .status-cluster button.panic-button,
+.foundation-cockpit .selector-bank .sound-stepper button,
+.keyboard-stage .foundation-keyboard button,
+.keyboard-stage .guidance-lamp-cell {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transition:
+    transform 92ms ease,
+    box-shadow 92ms ease,
+    border-color 92ms ease,
+    color 92ms ease,
+    opacity 120ms ease,
+    filter 120ms ease;
+}
+
+.harmony-control-surface button:focus-visible,
+.midi-take-recorder-strip button:focus-visible,
+.foundation-app .status-cluster button:focus-visible,
+.foundation-cockpit .selector-bank .sound-stepper button:focus-visible,
+.keyboard-stage .foundation-keyboard button:focus-visible,
+.keyboard-stage .guidance-lamp-cell:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.68),
+    0 2px 0 #030202,
+    0 0 0 1px rgba(237, 181, 101, 0.28),
+    0 0 8px rgba(212, 137, 72, 0.18);
+}
+
+.foundation-app button:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.midi-take-recorder-strip.is-recording .capture-led {
+  animation: none;
+  background: #ff6b56;
+  box-shadow:
+    0 0 7px rgba(255, 107, 86, 0.44),
+    inset 0 1px 1px rgba(255, 237, 202, 0.36);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foundation-app button,
+  .foundation-app *::before,
+  .foundation-app *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* No digital yellow outlines: state is shown by hardware lamps/light slits only. */
+.foundation-app button:focus-visible,
+.foundation-midi summary:focus-visible,
+.foundation-cockpit .voicing-dial:focus-visible,
+.keyboard-stage .guidance-lamp-cell:focus-visible {
+  outline: none !important;
+}
+
+.harmony-control-surface button.active,
+.harmony-control-surface button[aria-pressed="true"],
+.midi-take-recorder-strip button.active,
+.midi-take-recorder-strip button[aria-pressed="true"] {
+  border-color: rgba(8, 7, 6, 0.76);
+}
+
+.harmony-control-surface button:focus-visible,
+.midi-take-recorder-strip button:focus-visible,
+.foundation-app .status-cluster button:focus-visible,
+.foundation-cockpit .selector-bank .sound-stepper button:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, 0.13),
+    inset 0 -4px 7px rgba(0, 0, 0, 0.7),
+    0 3px 0 #030202,
+    0 8px 12px rgba(0, 0, 0, 0.27);
+}
+
+.harmony-control-surface button.active:focus-visible,
+.harmony-control-surface button[aria-pressed="true"]:focus-visible,
+.midi-take-recorder-strip button.active:focus-visible,
+.midi-take-recorder-strip button[aria-pressed="true"]:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, 0.1),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.72),
+    0 1px 0 #030202,
+    0 5px 9px rgba(0, 0, 0, 0.22);
+}
+
+/* Hover is only a material reflection, never a digital outline. */
+.foundation-app button:hover,
+.foundation-midi summary:hover,
+.harmony-control-surface button:hover,
+.midi-take-recorder-strip button:hover,
+.foundation-cockpit .selector-bank .sound-stepper button:hover,
+.foundation-app .status-cluster button:hover {
+  border-color: rgba(8, 7, 6, 0.76);
+  filter: brightness(1.045);
+}
+
+.keyboard-stage .foundation-keyboard button:hover {
+  border-color: rgba(87, 72, 53, 0.28);
+  filter: brightness(1.025);
+}
+
+.keyboard-stage .guidance-lamp-cell:hover {
+  outline: none;
+  filter: brightness(1.05);
 }

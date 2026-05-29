@@ -800,10 +800,10 @@ export function FoundationTestApp() {
           </div>
 
           <div className="recorder-mode-switch" aria-label="Recording Mode">
-            <button type="button" className={midiRecorderMode === "LIVE" ? "active" : ""} onClick={() => setMidiRecorderMode("LIVE")}>
+            <button type="button" className={midiRecorderMode === "LIVE" ? "active" : ""} aria-pressed={midiRecorderMode === "LIVE"} onClick={() => setMidiRecorderMode("LIVE")}>
               LIVE
             </button>
-            <button type="button" className={midiRecorderMode === "LOOP" ? "active" : ""} onClick={() => setMidiRecorderMode("LOOP")}>
+            <button type="button" className={midiRecorderMode === "LOOP" ? "active" : ""} aria-pressed={midiRecorderMode === "LOOP"} onClick={() => setMidiRecorderMode("LOOP")}>
               LOOP
             </button>
           </div>
