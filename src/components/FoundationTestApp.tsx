@@ -33,7 +33,7 @@ const foundationArpPatterns: Array<{ label: string; patch: Partial<ArpeggiatorSt
 const pathModes: HarmonyPathMode[] = ["SAFE", "DREAM", "EXPLORE"];
 const blackPitches = [1, 3, 6, 8, 10];
 const WAVEFORGE_ARTBOARD_WIDTH = 1474;
-const WAVEFORGE_ARTBOARD_HEIGHT = 1090;
+const WAVEFORGE_ARTBOARD_HEIGHT = 1158;
 
 const useWaveforgeArtboardScale = () => {
   const [scale, setScale] = useState(1);
